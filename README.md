@@ -29,3 +29,15 @@ This will create an isotope distribution printout for a mass of 10 kDa.
 
 However, most people will want to use functions in the DLL or Python wrapper.
 
+## License
+
+IsoGen is released under the BSD 3-Clause License. See LICENSE for details.
+
+PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT (publication to follow).
+
+## Contact
+
+If you have any questions, please email mtmarty@utexas.edu or open a ticket on GitHub.
+
+
+
