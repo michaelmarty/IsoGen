@@ -2,3 +2,4 @@
 /.idea
 /.git
 
+/src/cmake-build-release-wsl/
