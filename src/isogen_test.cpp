@@ -1,6 +1,6 @@
 #include <fstream>
 #include "isogenpep.h"
-
+#include <cstring>
 
 void print_isodist(const float *isodist, const int size) {
     // Make a command line printout of the spectrum
