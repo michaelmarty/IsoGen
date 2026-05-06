@@ -1,9 +1,34 @@
 import ctypes
 import os
 import numpy as np
-import time
 import platform
-from unidec.tools import start_at_iso
+
+
+def find_dll(targetfile, dir):
+    if dir is None:
+        return ""
+
+    for entry in os.scandir(dir):
+        if entry.is_file() and entry.name == targetfile:
+            # print("Found DLL within:", entry.path)
+            return entry.path
+
+        elif entry.is_dir():
+            result = find_dll(targetfile, entry.path)
+            if result:
+                return result
+
+    return ""
+
+def start_at_iso(targetfile, guess=None):
+    if guess is not None:
+        if os.path.isdir(guess):
+            result = find_dll(targetfile, guess)
+            if result:
+                return result
+
+    return targetfile
+
 
 current_path = os.path.dirname(os.path.realpath(__file__))
 
