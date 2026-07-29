@@ -113,19 +113,80 @@ struct IsoGenWeights LoadWeights(const struct IsoGenWeights weights, const unsig
     return weights;
 }
 
+
+#if defined(__AVX2__)
+
+#include <immintrin.h>
+
+void matrix_vector_multiply(const float *matrix, const float *vector, const float *bias, float *result, const int N,
+                            const int M, const int ss_flag, const int sigmoid_flag) {
+    for (int i = 0; i < N; i++) {
+        float val = bias[i];
+        __m256 sum = _mm256_setzero_ps(); // Initialize sum to zero
+        int j;
+        for (j = 0; j <= M - 8; j += 8) {
+            // Load 4 elements from the matrix and vector
+            const __m256 mat = _mm256_loadu_ps(&matrix[i * M + j]);
+            const __m256 vec = _mm256_loadu_ps(&vector[j]);
+            // Perform element-wise multiplication and add to sum
+            //sum = _mm256_add_ps(sum, _mm256_mul_ps(mat, vec));
+            sum = _mm256_fmadd_ps(mat, vec, sum);
+        }
+        // Horizontal addition of the 8 elements in sum
+        float temp[8];
+        _mm256_storeu_ps(temp, sum);
+        val += temp[0] + temp[1] + temp[2] + temp[3] + temp[4] + temp[5] + temp[6] + temp[7];
+        // Handle remaining elements
+        for (; j < M; j++) {
+            val += matrix[i * M + j] * vector[j];
+        }
+        // Softsign
+        if (ss_flag) {
+            val = softsign(val);
+        }
+        // Sigmoid
+        if (sigmoid_flag) {
+            val = sigmoid(val);
+        }
+        result[i] = val;
+    }
+}
+# else
+void matrix_vector_multiply(const float* matrix, const float* vector, const float* bias, float* result, const int N, const int M, const int ss_flag, const int sigmoid_flag) {
+#pragma omp parallel for
+    for (int i = 0; i < N; i++) {
+        float val = bias[i];
+        for (int j = 0; j < M; j++) {
+            val += matrix[i * M + j] * vector[j];
+        }
+        // Softsign
+        if (ss_flag) {
+            val = softsign(val);
+        }
+        // Sigmoid
+        if (sigmoid_flag) {
+            val = sigmoid(val);
+        }
+        result[i] = val;
+    }
+}
+#endif
+
+
 void neural_net(const float *vector, float *isodist, const struct IsoGenWeights weights) {
     //Allocate the memory for the intermediate values
     float *l1 = (float *) calloc(weights.vl2, sizeof(float));
     float *l2 = (float *) calloc(weights.vl3, sizeof(float));
 
     // Calculate the First Layer
-    for (int i = 0; i < weights.vl2; i++) {
-        l1[i] = weights.b1[i];
-        for (int j = 0; j < weights.vl1; j++) {
-            l1[i] += vector[j] * weights.w1[i * weights.vl1 + j];
-        }
-        l1[i] = softsign(l1[i]);
-    }
+    // for (int i = 0; i < weights.vl2; i++) {
+    //     l1[i] = weights.b1[i];
+    //     for (int j = 0; j < weights.vl1; j++) {
+    //         l1[i] += vector[j] * weights.w1[i * weights.vl1 + j];
+    //     }
+    //     l1[i] = softsign(l1[i]);
+    // }
+    matrix_vector_multiply(weights.w1, vector, weights.b1, l1, weights.vl2, weights.vl1, 1,0);
 
     // Calculate the second layer
     for (int i = 0; i < weights.vl3; i++) {
@@ -135,15 +196,17 @@ void neural_net(const float *vector, float *isodist, const struct IsoGenWeights 
         }
         l2[i] = softsign(l2[i]);
     }
+    matrix_vector_multiply(weights.w2, l1, weights.b2, l2, weights.vl3, weights.vl2, 1,0);
 
     // Calculate the third layer
-    for (int i = 0; i < weights.vl4; i++) {
-        isodist[i] = weights.b3[i];
-        for (int j = 0; j < weights.vl3; j++) {
-            isodist[i] += l2[j] * weights.w3[i * weights.vl3 + j];
-        }
-        isodist[i] = sigmoid(isodist[i]);
-    }
+    // for (int i = 0; i < weights.vl4; i++) {
+    //     isodist[i] = weights.b3[i];
+    //     for (int j = 0; j < weights.vl3; j++) {
+    //         isodist[i] += l2[j] * weights.w3[i * weights.vl3 + j];
+    //     }
+    //     isodist[i] = sigmoid(isodist[i]);
+    // }
+    matrix_vector_multiply(weights.w3, l2, weights.b3, isodist, weights.vl4, weights.vl3, 0,1);
 
     // Free Memory
     free(l1);

@@ -11,23 +11,45 @@ The NN methods are very accurate and can be faster on smaller species. The prima
 
 ## Installation
 
-Precompiled libraries for Windows and Linux are provided in the "bin" directory.
+Install a published wheel from PyPI:
 
-For other platforms, you can build the library from source using CMake. An example compile script is provided.
+```shell
+python -m pip install isogen
+```
 
-The only dependency is FFTW, but we have statically compiled it into the library, so no additional installation is necessary unless you want to build your own.
+Precompiled native libraries are provided for 64-bit Windows and Linux. Linux
+requires the FFTW 3 runtime; published Linux wheels bundle it during the
+manylinux repair step. For other platforms, build the native library from
+source using CMake.
 
 ## Usage
 
-A simple test script is provided. It can be run with:
+A simple native test executable is provided. It can be run with:
 
-'''
+```shell
 isogen_test.exe -mass 10000
-'''
+```
 
 This will create an isotope distribution printout for a mass of 10 kDa.
 
-However, most people will want to use functions in the DLL or Python wrapper.
+From Python:
+
+```python
+import isogen
+
+protein = isogen.isodist("ACDEFGHIK", type="PEPTIDE", isolen=64)
+rna = isogen.isodist("AUGCAGUACGUA", type="RNA", isolen=64)
+dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
+```
+
+From the command line:
+
+```shell
+isogen dist ACDEFGHIK --type PEPTIDE --isolen 64
+isogen plot
+```
+
+See `python -m isogen --help` for all options.
 
 ## License
 

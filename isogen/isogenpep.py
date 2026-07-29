@@ -3,9 +3,8 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import time
-from unidec.IsoDec.IsoGen.isogen_base import *
-from unidec.IsoDec.IsoGen.isogen_tools import peptide_to_dist, peptide_to_vector
-from Scripts.JGP.IsoGen_Analysis.distribution_assessment import *
+from isogen_base import *
+from isogen_tools import peptide_to_dist, peptide_to_vector
 
 
 class IsoGenPepEngine(IsoGenEngineBase):

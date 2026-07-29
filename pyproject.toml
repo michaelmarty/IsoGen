@@ -1,0 +1,71 @@
+[build-system]
+requires = [
+    "setuptools>=77",
+    "wheel>=0.45",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isogen"
+dynamic = ["version"]
+description = "Fast isotope-distribution calculations for proteins and nucleic acids"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "src/fftw/COPYING",
+    "src/fftw/COPYRIGHT",
+]
+authors = [
+    { name = "Michael T. Marty", email = "mtmarty@utexas.edu" },
+]
+keywords = [
+    "isotope distribution",
+    "mass spectrometry",
+    "proteomics",
+    "protein",
+    "DNA",
+    "RNA",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = [
+    "matplotlib>=3.7",
+    "numpy>=1.23",
+]
+
+[project.optional-dependencies]
+release = [
+    "build>=1.2",
+    "twine>=5",
+]
+
+[project.scripts]
+isogen = "isogen.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/michaelmarty/IsoGen"
+Repository = "https://github.com/michaelmarty/IsoGen"
+Issues = "https://github.com/michaelmarty/IsoGen/issues"
+
+[tool.setuptools]
+packages = ["isogen"]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = { attr = "isogen._version.__version__" }

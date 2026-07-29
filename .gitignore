@@ -3,3 +3,8 @@
 /.git
 
 /src/cmake-build-release-wsl/
+/build/
+/dist/
+/*.egg-info/
+/isogen/__pycache__/
+*.py[cod]

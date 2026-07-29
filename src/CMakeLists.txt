@@ -25,9 +25,15 @@ include_directories("${FFTW_DIR}")
 set(CMAKE_INSTALL_RPATH ${INSTALL_DIR})
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-# Set _CRT_SECURE_NO_WARNINGS option
-if(MSVC)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+
+# Compiler flags
+include(find_avx.cmake)
+CHECK_FOR_AVX()
+if(HAVE_AVX2_EXTENSIONS)
+    message(STATUS "Using AVX2")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${AVX_FLAGS}")
+else()
+    message(STATUS "Not Using AVX2")
 endif()
 
 
@@ -48,6 +54,7 @@ target_compile_definitions(isogen PUBLIC ISOGEN_BUILD_DLL)
 if(MSVC)
     add_library(fftw3 STATIC IMPORTED)
     set_target_properties(fftw3 PROPERTIES IMPORTED_LOCATION ${FFTW_DIR}/fftw3.lib)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
     message(STATUS "Not MSVC")
     message(STATUS "CMAKE_C_COMPILER_ID: ${CMAKE_C_COMPILER_ID}")
