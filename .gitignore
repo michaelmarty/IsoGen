@@ -10,3 +10,4 @@
 /isogen/__pycache__/
 *.py[cod]
 /bin/sign.py
+/.pypirc
