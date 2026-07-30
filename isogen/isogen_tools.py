@@ -1,14 +1,15 @@
-import molmass
 import numpy as np
 from collections import Counter
 import re
 
 if __package__:
-    from .isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist
-    from .mass import calc_pep_monoisotopic_mass
+    from .isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist, atom_formula_to_vector
+    from .mass import calc_pep_monoisotopic_mass, calc_atom_monoisotopic_mass
+    from .isogen import isodist
 else:
-    from isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist
-    from mass import calc_pep_monoisotopic_mass
+    from isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist, atom_formula_to_vector
+    from mass import calc_pep_monoisotopic_mass, calc_atom_monoisotopic_mass
+    from isogen import isodist
 
 elements = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt']
 edict = {}
@@ -211,7 +212,7 @@ def peptide_to_mass(peptide):
         mod_matches = re.findall(fullseq_pattern, peptide)
         mod_mass = 0
         for mod in mod_matches:
-            mod_mass += molmass.Formula(mod.strip("[]")).monoisotopic_mass
+            mod_mass += calc_atom_monoisotopic_mass(mod.strip("[]"))
         peptide = re.sub(fullseq_pattern, '', peptide)
         mass = calc_pep_monoisotopic_mass(peptide)
     except Exception:
@@ -241,9 +242,7 @@ def rnaseq_to_mass(rna_seq):
         formula_string = formula_string + str(rnaformula_dict_keys[i]) + str(formula_list[i]) + " "
 
     formula_string = formula_string + "P" + str(n-1)
-    formula = molmass.Formula(formula_string)
-
-    return formula.monoisotopic_mass
+    return calc_atom_monoisotopic_mass(formula_string)
 
 def rnaseq_to_formula(rna_seq):
     formula_list = np.array([0, 2, 0, 2])
@@ -285,14 +284,11 @@ def peptide_to_aacount(peptide):
 
 
 def get_dist_from_formula(formula, isolen=128, cutoff=0.001):
-    # Get the isotopic distribution from a chemical formula
-    mol = molmass.Formula(formula)
-    spec = mol.spectrum().dataframe()["Intensity %"].to_numpy()
-    # pad spec to isolen
-    if (isolen - len(spec)) > 0:
-        spec = np.pad(spec, (0, isolen - len(spec)))
-    else:
-        spec = spec[:isolen]
+    # Get the isotopic distribution from a chemical formula using isodist
+    result = isodist(formula, type="ATOM", isolen=isolen)
+    # Extract intensity column (column 1)
+    spec = result[:, 1]
+    # Normalize
     spec /= np.sum(spec)
     spec[spec < cutoff] = 0
     return spec
@@ -314,16 +310,7 @@ def formula_to_vector(formula):
     :param formula: Chemical formula string
     :return: Vector of atom counts
     """
-    vector = np.zeros(len(elements))
-
-    fvals = molmass.Formula(formula)._elements
-
-    for f in fvals:
-        element = f
-        num = fvals[f][0]
-        vector[edict[element]] = num
-
-    return vector
+    return atom_formula_to_vector(formula)
 
 
 # RNA Sequence to Dist
@@ -388,4 +375,5 @@ def pepmass_to_isolen(mass):
 if __name__ == "__main__":
     seq = "ACGU"
     mass = rnaseq_to_mass(seq)
+    print(mass)
     exit()

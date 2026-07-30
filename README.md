@@ -145,6 +145,9 @@ PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT (publication to follow
 If you have any questions, please email mtmarty@utexas.edu or open a ticket on GitHub.
 
 
-## TODO
+## CHANGELOG
 
-Strip remaining dependencies.
+### 1.0.0
+
+Initial release. Rewrote significantly from UniDec build using AI tool to improve the release and add in atomic formula support.
+

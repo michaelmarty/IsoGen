@@ -5,11 +5,14 @@ independent elemental-mass reference without becoming a runtime dependency of
 IsoGen.
 """
 
+import ctypes
+
 import numpy as np
 import pytest
 from pyteomics import mass as pyteomics_mass
 
 import isogen
+from isogen import isogenwrapper
 
 
 RNA_RESIDUE_FORMULAS = {
@@ -258,6 +261,76 @@ def test_fft_peptide_intensities_match_pyteomics_isotopologues():
     )[:, 1]
     expected = pyteomics_nominal_distribution(sequence, isolen=5)
     np.testing.assert_allclose(observed, expected, rtol=2e-5, atol=1e-8)
+
+
+def test_modified_peptide_nn_uses_full_base_sequence():
+    """Bracketed peptide modifications should not truncate the NN sequence."""
+    observed = isogenwrapper.nn_gen_seq_isodist(
+        "AC[O1]DE",
+        type="PEPTIDE",
+        isolen=64,
+    )
+    expected = isogenwrapper.nn_gen_seq_isodist(
+        "ACDE",
+        type="PEPTIDE",
+        isolen=64,
+    )
+    np.testing.assert_allclose(observed, expected)
+
+
+def test_modified_peptide_fft_applies_bracketed_formula():
+    """FFT peptide intensities should reflect the modification formula."""
+    unmodified = isogenwrapper.fft_gen_seq_isodist(
+        "ACDE",
+        type="PEPTIDE",
+        isolen=64,
+    )
+    modified = isogenwrapper.fft_gen_seq_isodist(
+        "AC[O1]DE",
+        type="PEPTIDE",
+        isolen=64,
+    )
+    assert not np.allclose(modified, unmodified)
+
+
+def test_native_peptide_mass_boundary_uses_64_bin_at_11000():
+    """The 11 kDa boundary should stay in the 64-length peptide NN model."""
+    native = ctypes.CDLL(isogenwrapper.dllpath)
+    native.nn_pep_mass_to_isolen.argtypes = [ctypes.c_float]
+    native.nn_pep_mass_to_isolen.restype = ctypes.c_int
+
+    assert native.nn_pep_mass_to_isolen(ctypes.c_float(11000.0)) == 64
+
+
+@pytest.mark.parametrize(
+    ("function_name", "sequence", "tail_start"),
+    [
+        ("nn_pep_seq_to_dist", b"AC", 16),
+        ("nn_rna_seq_to_dist", b"AUGC", 64),
+    ],
+)
+def test_native_nn_sequence_outputs_zero_unused_tail(
+    function_name,
+    sequence,
+    tail_start,
+):
+    """Direct C callers should receive zeroed output beyond the model length."""
+    native = ctypes.CDLL(isogenwrapper.dllpath)
+    function = getattr(native, function_name)
+    function.argtypes = [
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_float),
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    function.restype = ctypes.c_float
+
+    output = (ctypes.c_float * 128)(*([7.0] * 128))
+    result = function(sequence, output, 128, 0)
+    values = np.ctypeslib.as_array(output)
+
+    assert result > 0
+    np.testing.assert_allclose(values[tail_start:], 0.0)
 
 
 def test_isodist_forwards_fragment_mass_options():

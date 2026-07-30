@@ -45,7 +45,6 @@ add_library(isogen SHARED
                 isogenpep.c isogenpep.h
                 isogenrna.c isogenrna.h
                 isogenatom.c isogenatom.h
-        isogen_test.cpp
 )
 set_target_properties(isogen PROPERTIES LINKER_LANGUAGE C)
 target_include_directories(isogen PUBLIC ${FFTW_DIR})
@@ -71,10 +70,9 @@ install(TARGETS isogen DESTINATION ${INSTALL_DIR})
 
 add_executable(isogen_test isogen_test.cpp)
 target_include_directories(isogen_test PUBLIC ${SRC_DIR})
-target_link_libraries(isogen_test PUBLIC isogen isogen)
+target_link_libraries(isogen_test PUBLIC isogen)
 
 install(TARGETS isogen_test DESTINATION ${INSTALL_DIR})
-
 
 
 

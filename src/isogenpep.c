@@ -51,6 +51,24 @@ const char *pep_encoding_elements[] = {"C", "H", "N", "O", "S"};
 
 #define ISO_LEN 32
 
+static int prepare_isodist_output(float* isodist, const int isolen, const int offset)
+{
+    if (isodist == NULL || isolen <= 0 || offset < 0 || offset >= isolen)
+    {
+        return -1;
+    }
+    memset(isodist, 0, (size_t)isolen * sizeof(*isodist));
+    return 0;
+}
+
+static int nn_output_ready(const struct IsoGenWeights weights, const float* nn_isodist)
+{
+    return nn_isodist != NULL &&
+           weights.w1 != NULL && weights.b1 != NULL &&
+           weights.w2 != NULL && weights.b2 != NULL &&
+           weights.w3 != NULL && weights.b3 != NULL;
+}
+
 // Isotope Parameters
 float isoparams[10] = {
     1.00840852e+00f, 1.25318718e-03f, 2.37226341e+00f, 8.19178000e-04f, -4.37741951e-01f,
@@ -89,11 +107,14 @@ float isotopebeta(const float mass, const float *isoparams) {
 
 // Averagine distribution generation by curve fitting.
 float pep_mass_to_dist_fitting(const float mass, float * isodist, const int isolen, const int offset) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     const float mid = isotopemid(mass, isoparams);
     const float sig = isotopesig(mass, isoparams);
-    if (sig == 0) {
-        printf("Error: Sigma Isotope Parameter is 0");
-        exit(102);
+    if (sig <= 0.0f) {
+        printf("Error: Sigma isotope parameter must be positive\n");
+        return -1.0f;
     }
     const float alpha = isotopealpha(mass, isoparams);
     const float amp = 1.0f - alpha;
@@ -135,7 +156,7 @@ int pep_seq_to_aacount(const char* seq) {
             aas += 1;
         }
         else {
-            if (seq[i] == '['){ in_mod = 0; }
+            if (seq[i] == ']'){ in_mod = 0; }
         }
     }
     return aas;
@@ -161,7 +182,7 @@ int pep_seq_to_nnvector(const char* seq, float* vector) {
             if (aaindex != -1){ vector[aaindex] += 1.0f; }
         }
         else {
-            if (seq[i] == '['){ in_mod = 0; }
+            if (seq[i] == ']'){ in_mod = 0; }
         }
     }
     return aas;
@@ -169,6 +190,9 @@ int pep_seq_to_nnvector(const char* seq, float* vector) {
 
 
 float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset){
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     float* vector = (float *) calloc(20, sizeof(float));
     if (vector == NULL) {
         return -1.0f;
@@ -181,9 +205,9 @@ float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
         return -1.0f;
     }
 
-    struct IsoGenWeights weights;
-    float* nn_isodist;
-    int nn_isolen;
+    struct IsoGenWeights weights = {0};
+    float* nn_isodist = NULL;
+    int nn_isolen = 0;
 
     if (aas >= 1 && aas <= 50) {
         weights = SetupWeights(20, 16);
@@ -204,6 +228,12 @@ float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
         nn_isodist = (float*)calloc(nn_isolen, sizeof(float));
     }
 
+    if (!nn_output_ready(weights, nn_isodist)) {
+        free(vector);
+        free(nn_isodist);
+        FreeIsogenWeights(weights);
+        return -1.0f;
+    }
 
     if (neural_net(vector, nn_isodist, weights) != 0) {
         free(vector);
@@ -235,14 +265,16 @@ float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
         if (isodist[i] > maxval) {maxval = isodist[i];}
     }
 
-    for (int i = 0;i< isolen; i++) {
-        isodist[i] /= maxval;
+    if (maxval > 0.0f) {
+        for (int i = 0;i< isolen; i++) {
+            isodist[i] /= maxval;
+        }
     }
     return maxval;
 }
 
 //fft
-void add_mod_to_fftlist(char* mod, int* fftlist) {
+void add_mod_to_fftlist(const char* mod, int* fftlist) {
     int i = 0;
     while (mod[i] != '\0') {
         if (!isupper(mod[i])) {
@@ -264,7 +296,7 @@ void add_mod_to_fftlist(char* mod, int* fftlist) {
 
         if (count == 0) count = 1;
 
-        for (int j = 0; j < 11; j++) {
+        for (int j = 0; j < num_simp_elements; j++) {
             if (strcmp(symbol, pep_encoding_elements[j]) == 0) {
                 fftlist[j] += count;
                 break;
@@ -331,7 +363,7 @@ int nn_pep_mass_to_isolen(const float mass) {
     if (mass < 11000) {
         return 32;
     }
-    if (mass > 11000 && mass < 55000) {
+    if (mass < 55000) {
         return 64;
     }
 
@@ -364,22 +396,7 @@ void pep_mass_to_fftlist(const float mass, int* fftlist)
 
 
 int get_pep_isolen_from_seq(const char* seq) {
-    int aas = 0;
-
-    int length = strlen(seq);
-    int inmod = 0;
-
-    for (int i = 0;i<length;i++) {
-        if (seq[i] == '[') {
-            inmod = 1;
-        }
-        else if (inmod == 1 && seq[i] == ']') {
-            inmod = 0;
-        }
-        else {
-            aas += 1;
-        }
-    }
+    int aas = pep_seq_to_aacount(seq);
 
     if (aas < 50){return 16;}
     if (aas < 300){return 64;}
@@ -390,12 +407,15 @@ int get_pep_isolen_from_seq(const char* seq) {
 //fft
 float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen, const int offset)
 {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     int* formulalist = (int*)calloc(5, sizeof(int));
     // Check for null
     if (formulalist == NULL)
     {
         printf("Error: Could not allocate memory for formulalist\n");
-        return 1;
+        return -1.0f;
     }
     pep_seq_to_fftlist(sequence, formulalist);
 
@@ -460,6 +480,9 @@ float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen
 //fft
 float fft_pep_mass_to_dist(const float mass, float *isodist, const int isolen, const int offset)
 {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     int* fftlist = (int*)calloc(5, sizeof(int));
     if (fftlist == NULL) {
         return -1.0f;
@@ -509,6 +532,9 @@ float fft_pep_mass_to_dist(const float mass, float *isodist, const int isolen, c
 
 //nn
 float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     float* vector = (float*)calloc(5, sizeof(float));
     if (vector == NULL) {
         return -1.0f;
@@ -521,7 +547,7 @@ float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, co
     if (nn_isolen == -1) {
         printf("Error: Mass outside of allowed NN mass range: %f\n", mass);
         free(vector);
-        return -1;
+        return -1.0f;
     }
 
     float* nn_isodist = (float*)calloc(nn_isolen, sizeof(float));
@@ -531,6 +557,13 @@ float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, co
     else if ( nn_isolen == 32 ){ weights = LoadWeights(weights, isogenmass_model_32_bin); }
     else if ( nn_isolen == 64 ){ weights = LoadWeights(weights, isogenmass_model_64_bin); }
     else { weights = LoadWeights(weights, isogenmass_model_128_bin); }
+
+    if (!nn_output_ready(weights, nn_isodist)) {
+        free(vector);
+        free(nn_isodist);
+        FreeIsogenWeights(weights);
+        return -1.0f;
+    }
 
     if (neural_net(vector, nn_isodist, weights) != 0) {
         free(vector);
@@ -560,8 +593,10 @@ float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, co
         if (isodist[i] > maxval) {maxval = isodist[i];}
     }
 
-    for (int i = 0; i < isolen; i++) {
-        isodist[i] /= maxval;
+    if (maxval > 0.0f) {
+        for (int i = 0; i < isolen; i++) {
+            isodist[i] /= maxval;
+        }
     }
     return maxval;
 }
@@ -582,6 +617,46 @@ typedef struct {
     size_t size;
     size_t capacity;
 } ProteinList;
+
+static int parse_protein_entry_line(
+    const char* line,
+    double* mass,
+    char* sequence,
+    const size_t sequence_capacity)
+{
+    char* mass_end = NULL;
+    const char* cursor = line;
+
+    while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+        cursor++;
+    }
+    if (*cursor == '\0' || *cursor == '#') {
+        return 0;
+    }
+
+    *mass = strtod(cursor, &mass_end);
+    if (mass_end == cursor) {
+        return 0;
+    }
+
+    cursor = mass_end;
+    while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+        cursor++;
+    }
+    if (*cursor == '\0') {
+        return 0;
+    }
+
+    const size_t sequence_length = strcspn(cursor, " \t\r\n");
+    if (sequence_length == 0 || sequence_length >= sequence_capacity) {
+        fprintf(stderr, "Skipping malformed sequence entry\n");
+        return 0;
+    }
+
+    memcpy(sequence, cursor, sequence_length);
+    sequence[sequence_length] = '\0';
+    return 1;
+}
 
 void free_protein_list(ProteinList* list) {
     for (size_t i = 0; i < list->size; ++i) {
@@ -616,8 +691,14 @@ ProteinList read_masses_seqs_file(const char* filename) {
     while (fgets(line, sizeof(line), file)) {
         double mass;
         char seq_buf[MAX_LINE_LENGTH];
+        const int parsed = parse_protein_entry_line(
+            line,
+            &mass,
+            seq_buf,
+            sizeof(seq_buf)
+        );
 
-        if (sscanf(line, "%lf %s", &mass, seq_buf) != 2) {
+        if (parsed <= 0) {
             continue;  // skip malformed lines
         }
 
@@ -633,12 +714,13 @@ ProteinList read_masses_seqs_file(const char* filename) {
 
         // Allocate and copy the sequence
         list.entries[list.size].mass = mass;
-        list.entries[list.size].sequence = malloc(strlen(seq_buf) + 1);
+        const size_t sequence_length = strlen(seq_buf) + 1;
+        list.entries[list.size].sequence = malloc(sequence_length);
         if (!list.entries[list.size].sequence) {
             fprintf(stderr, "String allocation failed!\n");
             break;
         }
-        strcpy(list.entries[list.size].sequence, seq_buf);
+        memcpy(list.entries[list.size].sequence, seq_buf, sequence_length);
         list.size++;
     }
 
@@ -653,8 +735,12 @@ extern void run_file(const char* filename) {
 
     int isolen = 64;
 
-    for (int i = 0; i < list.size; i++) {
+    for (size_t i = 0; i < list.size; i++) {
         float* isodist = (float*)calloc(isolen, sizeof(float));
+        if (isodist == NULL) {
+            fprintf(stderr, "Error allocating memory for isodist\n");
+            break;
+        }
         nn_pep_mass_to_dist(list.entries[i].mass, isodist, isolen, 0);
         fft_pep_mass_to_dist(list.entries[i].mass, isodist, isolen, 0);
         nn_pep_mass_to_dist(list.entries[i].mass, isodist, isolen, 0);

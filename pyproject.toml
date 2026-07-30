@@ -55,7 +55,6 @@ docs = [
     "mkdocs>=1.6",
 ]
 training = [
-    "molmass>=2025.4.14",
     "pandas>=2.3",
     "torch>=2.7",
 ]

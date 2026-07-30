@@ -22,6 +22,24 @@ const int rna_vectors[][5] = {
     {9,10,2,4,0}
 };
 
+static int prepare_isodist_output(float* isodist, const int isolen, const int offset)
+{
+    if (isodist == NULL || isolen <= 0 || offset < 0 || offset >= isolen)
+    {
+        return -1;
+    }
+    memset(isodist, 0, (size_t)isolen * sizeof(*isodist));
+    return 0;
+}
+
+static int nn_output_ready(const struct IsoGenWeights weights, const float* nn_isodist)
+{
+    return nn_isodist != NULL &&
+           weights.w1 != NULL && weights.b1 != NULL &&
+           weights.w2 != NULL && weights.b2 != NULL &&
+           weights.w3 != NULL && weights.b3 != NULL;
+}
+
 
 void rna_mass_to_list(float initialMass, int* fftlist)
 //Mass -> List 5 length list of number of {C, H, N, O, S}
@@ -44,6 +62,9 @@ void rna_mass_to_list(float initialMass, int* fftlist)
 float fft_rna_mass_to_dist(float mass, float* isodist, int isolen, int offset)
 // Mass to dist
 {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     int* fftlist = (int*)calloc(5, sizeof(int));
     if (fftlist == NULL) {
         return -1.0f;
@@ -129,12 +150,15 @@ void rna_seq_to_fftlist(const char* sequence, int* fftlist)
 
 float fft_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen, const int offset)
 {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     int* fftlist = (int*)calloc(5, sizeof(int));
     // Check for null
     if (fftlist == NULL)
     {
         printf("Error: Could not allocate memory for formulalist\n");
-        return 1;
+        return -1.0f;
     }
     rna_seq_to_fftlist(sequence, fftlist);
 
@@ -150,8 +174,10 @@ float fft_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen
         if (i < offset) { isodist[i] = 0.0f; }
     }
 
-    for (int i = 0;i<isolen;i++) {
-        isodist[i] /= maxval;
+    if (maxval > 0.0f) {
+        for (int i = 0;i<isolen;i++) {
+            isodist[i] /= maxval;
+        }
     }
 
     return maxval;
@@ -171,6 +197,9 @@ int nn_rna_mass_to_isolen(const float mass) {
 }
 
 float nn_rna_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     float* vector = (float*)calloc(5, sizeof(float));
     if (vector == NULL) {
         return -1.0f;
@@ -183,7 +212,7 @@ float nn_rna_mass_to_dist(const float mass, float* isodist, const int isolen, co
     if (nn_isolen == -1) {
         printf("Error: Mass outside of allowed NN mass range: %f\n", mass);
         free(vector);
-        return -1;
+        return -1.0f;
     }
 
     float* nn_isodist = (float*)calloc(nn_isolen, sizeof(float));
@@ -192,6 +221,13 @@ float nn_rna_mass_to_dist(const float mass, float* isodist, const int isolen, co
     if (nn_isolen == 32){ weights = LoadWeights(weights, isogen_rnaveragine_model32_bin); }
     else if ( nn_isolen == 64 ){ weights = LoadWeights(weights, isogen_rnaveragine_model64_bin); }
     else { weights = LoadWeights(weights, isogen_rnaveragine_model128_bin); }
+
+    if (!nn_output_ready(weights, nn_isodist)) {
+        free(vector);
+        free(nn_isodist);
+        FreeIsogenWeights(weights);
+        return -1.0f;
+    }
 
     if (neural_net(vector, nn_isodist, weights) != 0) {
         free(vector);
@@ -221,14 +257,19 @@ float nn_rna_mass_to_dist(const float mass, float* isodist, const int isolen, co
         if (isodist[i] > maxval) {maxval = isodist[i];}
     }
 
-    for (int i = 0; i < isolen; i++) {
-        isodist[i] /= maxval;
+    if (maxval > 0.0f) {
+        for (int i = 0; i < isolen; i++) {
+            isodist[i] /= maxval;
+        }
     }
     return maxval;
 }
 
 
 float nn_rna_seq_to_dist(const char* seq, float* isodist, int isolen, int offset) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
     float* vector = calloc(4, sizeof(float));
     if (vector == NULL) {
         return -1.0f;
@@ -255,7 +296,18 @@ float nn_rna_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
     if (len > 500) {
         printf("Error: Sequence length outside of allowed NN range: %i\n", len);
         free(vector);
-        return -1;
+        return -1.0f;
+    }
+    if (len < 1) {
+        free(vector);
+        return -1.0f;
+    }
+
+    if (!nn_output_ready(weights, nn_isodist)) {
+        free(vector);
+        free(nn_isodist);
+        FreeIsogenWeights(weights);
+        return -1.0f;
     }
 
     if (neural_net(vector, nn_isodist, weights) != 0) {
@@ -287,8 +339,10 @@ float nn_rna_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
         if (isodist[i] > maxval) {maxval = isodist[i];}
     }
 
-    for (int i = 0;i< isolen; i++) {
-        isodist[i] /= maxval;
+    if (maxval > 0.0f) {
+        for (int i = 0;i< isolen; i++) {
+            isodist[i] /= maxval;
+        }
     }
     return maxval;
 }

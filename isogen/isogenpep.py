@@ -2,7 +2,6 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import time
 
 if __package__:
     from .isogen_base import IsoGenEngineBase, IsoGenModelBase
