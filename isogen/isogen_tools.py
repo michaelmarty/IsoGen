@@ -1,7 +1,6 @@
 import molmass
 import numpy as np
 from collections import Counter
-import molmass as mm
 import re
 
 if __package__:
@@ -212,7 +211,7 @@ def peptide_to_mass(peptide):
         mod_matches = re.findall(fullseq_pattern, peptide)
         mod_mass = 0
         for mod in mod_matches:
-            mod_mass += mm.Formula(mod.strip("[]")).monoisotopic_mass
+            mod_mass += molmass.Formula(mod.strip("[]")).monoisotopic_mass
         peptide = re.sub(fullseq_pattern, '', peptide)
         mass = calc_pep_monoisotopic_mass(peptide)
     except Exception:
@@ -287,7 +286,7 @@ def peptide_to_aacount(peptide):
 
 def get_dist_from_formula(formula, isolen=128, cutoff=0.001):
     # Get the isotopic distribution from a chemical formula
-    mol = mm.Formula(formula)
+    mol = molmass.Formula(formula)
     spec = mol.spectrum().dataframe()["Intensity %"].to_numpy()
     # pad spec to isolen
     if (isolen - len(spec)) > 0:
@@ -317,7 +316,7 @@ def formula_to_vector(formula):
     """
     vector = np.zeros(len(elements))
 
-    fvals = mm.Formula(formula)._elements
+    fvals = molmass.Formula(formula)._elements
 
     for f in fvals:
         element = f

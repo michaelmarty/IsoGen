@@ -1,5 +1,3 @@
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 from isogen_base import *
 from isogen_tools import *
 
@@ -45,6 +43,8 @@ if __name__ == "__main__":
     testformulas = ["C2H5O", "H8N2O4W", "S8", "CHCl3", "C60", "CHBr3"]
     mpl.use("WxAgg")
     isolen = 4096
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
     eng = IsoGenAtomEngine(isolen=isolen)
     for i, f in enumerate(testformulas):
         maxval = 10
