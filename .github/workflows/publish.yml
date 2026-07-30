@@ -2,6 +2,15 @@ name: Build and publish
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_to_pypi:
+        description: 'Publish to PyPI after building?'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
   release:
     types: [published]
 
@@ -96,7 +105,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to_pypi == 'true')
     needs: [wheels, sdist]
     runs-on: ubuntu-latest
     environment:
