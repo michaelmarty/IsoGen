@@ -27,12 +27,13 @@ def build_parser():
     """Construct the top-level IsoGen command-line argument parser."""
     parser = argparse.ArgumentParser(
         prog="python -m isogen",
-        description="Generate and plot protein, RNA, or DNA isotope distributions.",
+        description="Generate protein, RNA, DNA, or formula isotope distributions.",
         epilog=(
             "Examples:\n"
             "  python -m isogen dist 10000 --type PEPTIDE\n"
             "  python -m isogen dist ACDEFGHIK --type PEPTIDE --method NN\n"
             "  python -m isogen dist AUGCAGUACGUA --type RNA --output rna.csv\n"
+            "  python -m isogen dist C6H12O6 --type ATOM --output glucose.csv\n"
             "  python -m isogen plot --save isodist_examples.png --no-show"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -47,7 +48,7 @@ def build_parser():
     dist_parser.add_argument(
         "--type",
         default="PEPTIDE",
-        choices=("PEPTIDE", "RNA", "DNA"),
+        choices=("PEPTIDE", "RNA", "DNA", "ATOM"),
         type=str.upper,
         help="analyte type (default: PEPTIDE)",
     )

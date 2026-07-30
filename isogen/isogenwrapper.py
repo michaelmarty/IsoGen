@@ -103,6 +103,133 @@ isogen_c_lib.nn_pep_seq_to_dist.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctyp
                                             ctypes.c_int]
 isogen_c_lib.nn_pep_seq_to_dist.restype = ctypes.c_float
 
+ATOM_ELEMENT_COUNT = 109
+
+_atom_formula_to_vector_c = getattr(
+    isogen_c_lib, "atom_formula_to_vector", None
+)
+_fft_atom_formula_to_dist_c = getattr(
+    isogen_c_lib, "fft_atom_formula_to_dist", None
+)
+
+if _atom_formula_to_vector_c is not None:
+    _atom_formula_to_vector_c.argtypes = [
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_int),
+    ]
+    _atom_formula_to_vector_c.restype = ctypes.c_int
+
+if _fft_atom_formula_to_dist_c is not None:
+    _fft_atom_formula_to_dist_c.argtypes = [
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_float),
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    _fft_atom_formula_to_dist_c.restype = ctypes.c_float
+
+
+def _require_atom_formula_function(function, name):
+    """Raise an informative error for a native library without atom support."""
+    if function is None:
+        raise RuntimeError(
+            f"{name} is unavailable in {dllpath!r}. Rebuild or reinstall "
+            "the IsoGen native library with isogenatom.c included."
+        )
+
+
+def _encode_formula(formula):
+    """Validate and encode an elemental formula for the native API."""
+    if not isinstance(formula, str):
+        raise TypeError("formula must be a string")
+    return formula.encode("utf-8")
+
+
+def atom_formula_to_vector(formula):
+    """Convert an elemental formula to an atomic-count vector.
+
+    The returned 109-element vector is indexed by atomic number minus one.
+    For example, hydrogen is at index 0, carbon at index 5, and oxygen at
+    index 7. Repeated elements in a formula are combined by the native
+    parser.
+
+    Args:
+        formula: Elemental formula such as ``"C6H12O6"``.
+
+    Returns:
+        An int32 NumPy array containing the count of each element.
+
+    Raises:
+        TypeError: If ``formula`` is not a string.
+        ValueError: If the formula is empty, malformed, or contains an
+            unsupported element.
+        RuntimeError: If the loaded native library lacks atom support.
+    """
+    _require_atom_formula_function(
+        _atom_formula_to_vector_c, "atom_formula_to_vector"
+    )
+    formula_bytes = _encode_formula(formula)
+    atom_counts = np.zeros(ATOM_ELEMENT_COUNT, dtype=np.int32)
+    ptr = atom_counts.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+    result = _atom_formula_to_vector_c(formula_bytes, ptr)
+    if result != 0:
+        raise ValueError(f"Invalid elemental formula: {formula!r}")
+    return atom_counts
+
+
+def fft_gen_atom_isodist(formula, isolen=128, offset=0):
+    """Generate FFT isotope intensities from an elemental formula.
+
+    Args:
+        formula: Elemental formula such as ``"C6H12O6"``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A base-peak-normalized float32 NumPy intensity vector.
+
+    Raises:
+        TypeError: If an argument has the wrong type.
+        ValueError: If the formula or output geometry is invalid.
+        RuntimeError: If the loaded native library lacks atom support.
+    """
+    _require_atom_formula_function(
+        _fft_atom_formula_to_dist_c, "fft_atom_formula_to_dist"
+    )
+    formula_bytes = _encode_formula(formula)
+    if not isinstance(isolen, (int, np.integer)):
+        raise TypeError("isolen must be an integer")
+    if not isinstance(offset, (int, np.integer)):
+        raise TypeError("offset must be an integer")
+    if isolen <= 0:
+        raise ValueError("isolen must be greater than zero")
+    if offset < 0 or offset >= isolen:
+        raise ValueError("offset must satisfy 0 <= offset < isolen")
+    isolen = int(isolen)
+    offset = int(offset)
+
+    isodist = np.zeros(isolen, dtype=np.float32)
+    ptr = isodist.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    result = _fft_atom_formula_to_dist_c(
+        formula_bytes,
+        ptr,
+        ctypes.c_int(isolen),
+        ctypes.c_int(offset),
+    )
+    if result < 0:
+        raise ValueError(f"Invalid elemental formula: {formula!r}")
+    return isodist
+
+
+def fft_atom_formula_to_dist(formula, isolen=128, offset=0):
+    """Alias for :func:`fft_gen_atom_isodist` using the native API name."""
+    return fft_gen_atom_isodist(formula, isolen=isolen, offset=offset)
+
+
+def isogen_atom(formula, isolen=128):
+    """Generate formula intensities through the compatibility API name."""
+    return fft_gen_atom_isodist(formula, isolen=isolen, offset=0)
+
 
 def nn_gen_seq_isodist(sequence, type="PEPTIDE", isolen=64, offset=0):
     """Generate neural-network isotope intensities from a sequence.
@@ -139,16 +266,20 @@ def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
     """Generate FFT isotope intensities from a sequence.
 
     DNA sequences use the RNA model after replacing thymine with uracil.
+    ``ATOM`` and ``FORMULA`` inputs are parsed as elemental formulas.
 
     Args:
-        sequence: Protein, RNA, or DNA sequence.
-        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        sequence: Protein, RNA, or DNA sequence, or an elemental formula.
+        type: ``PEPTIDE``, ``RNA``, ``DNA``, ``ATOM``, or ``FORMULA``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
 
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
     """
+    type = type.upper() if isinstance(type, str) else type
+    if type in ("ATOM", "FORMULA"):
+        return fft_gen_atom_isodist(sequence, isolen=isolen, offset=offset)
     if type == "DNA":
         sequence = sequence.upper().replace("T", "U")
     sequence_bytes = sequence.encode("utf-8")
@@ -217,14 +348,15 @@ def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
     """Generate FFT isotope intensities from a mass or sequence.
 
     Args:
-        input: Numeric neutral mass or sequence string.
-        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        input: Numeric neutral mass, sequence, or elemental formula string.
+        type: ``PEPTIDE``, ``RNA``, ``DNA``, ``ATOM``, or ``FORMULA``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
 
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
     """
+    type = type.upper() if isinstance(type, str) else type
     if isinstance(input, str):
         return fft_gen_seq_isodist(input, type=type, isolen=isolen, offset=offset)
 
@@ -255,7 +387,7 @@ def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
 
     Args:
         input: Numeric neutral mass or sequence string.
-        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        type: ``PEPTIDE``, ``RNA``, ``DNA``, or ``ATOM``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
         method: ``FFT`` or ``NN``.
@@ -264,6 +396,10 @@ def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
         A float32 NumPy intensity vector, or ``None`` for an unknown method or
         analyte type.
     """
+    type = type.upper() if isinstance(type, str) else type
+    method = method.upper() if isinstance(method, str) else method
+    if type in ("ATOM", "FORMULA") and method != "FFT":
+        raise ValueError("ATOM inputs support only the FFT method")
     if method == "FFT":
         return fft_gen_isodist(input, type=type, isolen=isolen, offset=offset)
     elif method == "NN":

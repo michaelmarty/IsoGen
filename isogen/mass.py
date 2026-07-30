@@ -22,6 +22,33 @@ rna_masses_monoisotopic = {'A': 329.05252, 'U': 306.02530, 'C': 305.04129, 'G': 
 dna_masses_monoisotopic = {'A': 313.05761, 'T': 304.04604, 'C': 289.04637, 'G': 329.05252,
                            'U': 304.04604}
 
+# Light-isotope masses in atomic-number order. These are the isotope-zero
+# reference values used by the native elemental-formula FFT implementation.
+atom_masses_monoisotopic = np.array([
+    1.00782503223, 3.0160293201, 6.0151228874, 9.012183065, 10.01293695, 12.0,
+    14.00307400443, 15.99491461957, 18.99840316273, 19.9924401762, 22.989769282,
+    23.985041697, 26.98153853, 27.97692653465, 30.97376199842, 31.9720711744,
+    34.968852682, 35.967545105, 38.9637064864, 39.962590863, 44.95590828,
+    45.95262772, 49.94715601, 49.94604183, 54.93804391, 53.93960899,
+    58.93319429, 57.93534241, 62.92959772, 63.92914201, 68.9255735,
+    69.92424875, 74.92159457, 73.922475934, 78.9183376, 77.92036494,
+    84.9117897379, 83.9134191, 88.9058403, 89.9046977, 92.906373,
+    91.90680796, 97.9072124, 95.90759025, 102.905498, 101.9056022,
+    106.9050916, 105.9064599, 112.90406184, 111.90482387, 120.903812,
+    119.9040593, 126.9044719, 123.905892, 132.905451961, 129.9063207,
+    137.9071149, 135.90712921, 140.9076576, 141.907729, 144.9127559,
+    143.9120065, 150.9198578, 151.9197995, 158.9253547, 155.9242847,
+    164.9303288, 161.9287884, 168.9342179, 167.9338896, 174.9407752,
+    173.9400461, 179.9474648, 179.9467108, 184.9529545, 183.9524885,
+    190.9605893, 189.9599297, 196.96656879, 195.9658326, 202.9723446,
+    203.973044, 208.9803991, 208.9824308, 209.9871479, 222.0175782,
+    223.019736, 226.0254103, 227.0277523, 232.0380558, 231.0358842,
+    234.0409523, 237.0481736, 244.0642053, 243.0613813, 247.0703541,
+    247.0703073, 251.0795886, 252.08298, 257.0951061, 258.0984315,
+    259.10103, 262.10961, 267.12179, 268.12567, 271.13393, 272.13826,
+    270.13429, 276.15159,
+], dtype=float)
+
 mass_water = 18.0153
 mass_OH = 17.008
 mass_O = 15.9994
@@ -379,6 +406,24 @@ def calc_dna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
     return float(mass)
 
 
+def calc_atom_monoisotopic_mass(formula):
+    """Calculate the light-isotope mass of an elemental formula.
+
+    The formula is parsed by the same native function used for the ATOM
+    isotope distribution, and therefore supports the same 109 elements.
+
+    Args:
+        formula: Elemental formula such as ``"C6H12O6"``.
+
+    Returns:
+        Light-isotope neutral mass in daltons.
+    """
+    from .isogenwrapper import atom_formula_to_vector
+
+    atom_counts = atom_formula_to_vector(formula)
+    return float(np.dot(atom_counts, atom_masses_monoisotopic))
+
+
 def calc_mass_axis(monoisotopic_mass, isolen=128, isotope_spacing=1.0033):
     """Create an evenly spaced mass axis.
 
@@ -456,12 +501,32 @@ def calc_dna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="O
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 
-def gen_mass_axis(input, type="PEPTIDE", isolen=128, isotope_spacing=None, **mass_kwargs):
-    """Create a mass axis from a numeric mass or biopolymer sequence.
+def calc_atom_mass_axis(formula, isolen=128, isotope_spacing=1.0033):
+    """Create a mass axis for an elemental formula.
 
     Args:
-        input: Numeric monoisotopic mass or sequence string.
-        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        formula: Elemental formula such as ``"C6H12O6"``.
+        isolen: Number of values to generate.
+        isotope_spacing: Difference between adjacent nominal isotope masses.
+
+    Returns:
+        A one-dimensional float NumPy array beginning at the formula's
+        light-isotope mass.
+    """
+    monoisotopic_mass = calc_atom_monoisotopic_mass(formula)
+    return calc_mass_axis(
+        monoisotopic_mass,
+        isolen,
+        isotope_spacing=isotope_spacing,
+    )
+
+
+def gen_mass_axis(input, type="PEPTIDE", isolen=128, isotope_spacing=None, **mass_kwargs):
+    """Create a mass axis from a mass, biopolymer sequence, or formula.
+
+    Args:
+        input: Numeric monoisotopic mass, sequence, or elemental formula.
+        type: ``PEPTIDE``, ``RNA``, ``DNA``, or ``ATOM``.
         isolen: Number of values to generate.
         isotope_spacing: Optional spacing override. Defaults to 1.0033 Da for
             proteins and 1.0027 Da for nucleic acids.
@@ -471,6 +536,7 @@ def gen_mass_axis(input, type="PEPTIDE", isolen=128, isotope_spacing=None, **mas
     Returns:
         A one-dimensional float NumPy array.
     """
+    type = type.upper() if isinstance(type, str) else type
     if not isinstance(input, str):
         if isotope_spacing is None:
             isotope_spacing = 1.0027 if type in ("RNA", "DNA") else 1.0033
@@ -488,6 +554,14 @@ def gen_mass_axis(input, type="PEPTIDE", isolen=128, isotope_spacing=None, **mas
         if isotope_spacing is None:
             isotope_spacing = 1.0027
         return calc_dna_mass_axis(input, isolen, isotope_spacing=isotope_spacing, **mass_kwargs)
+    elif type in ("ATOM", "FORMULA"):
+        if isotope_spacing is None:
+            isotope_spacing = 1.0033
+        return calc_atom_mass_axis(
+            input,
+            isolen,
+            isotope_spacing=isotope_spacing,
+        )
     else:
         raise ValueError("Unknown type for mass axis generation: {}".format(type))
 

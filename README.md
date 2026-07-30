@@ -42,6 +42,27 @@ rna = isogen.isodist("AUGCAGUACGUA", type="RNA", isolen=64)
 dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
 ```
 
+Elemental formulas can be passed directly to the FFT wrapper:
+
+```python
+from isogen import isogenwrapper
+
+glucose = isogenwrapper.fft_gen_atom_isodist("C6H12O6", isolen=32)
+counts = isogenwrapper.atom_formula_to_vector("C6H12O6")
+
+# Public two-column mass/intensity output:
+glucose_mass_dist = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
+```
+
+The distribution is a base-peak-normalized intensity vector. The count vector
+has 109 entries indexed by atomic number minus one (H is index 0, C is index
+5, and O is index 7). The native-style `fft_atom_formula_to_dist` and
+`isogen_atom` names are also available as aliases. Formula inputs can
+alternatively be dispatched with
+`isogenwrapper.fft_gen_isodist("C6H12O6", type="FORMULA")`.
+The public `ATOM` type uses the FFT method; no neural-network formula model is
+available.
+
 ### Peptide ions and RNA termini
 
 For peptide fragments, pass the fragment sequence and select its neutral
@@ -114,5 +135,7 @@ PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT (publication to follow
 
 If you have any questions, please email mtmarty@utexas.edu or open a ticket on GitHub.
 
-TODO:
+TODO: Remove from UniDec and import IsoGen as a dependency.
+IsoGen Atom inclusion in the package.
 
+Test and deploy.

@@ -60,7 +60,6 @@ ISOGENDEP_EXPORTS float softsign(const float x);
 ISOGENDEP_EXPORTS float sigmoid(const float x);
 ISOGENDEP_EXPORTS void mass_to_vector(const float mass, float *vector);
 ISOGENDEP_EXPORTS void isogenmass_nn(const float mass, float *isodist, int isolen, const char* analyte);
-ISOGENDEP_EXPORTS void isogen_atom(const char* sequence, float* isodist, int isolen);
 ISOGENDEP_EXPORTS float fft_list_to_dist(const int isolist[11], const int length, float* isodist);
 
 extern const double fftarray[3597][2];

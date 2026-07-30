@@ -74,6 +74,8 @@ def test_public_exports_are_available():
     """Every documented top-level function should be importable."""
     expected = {
         "isodist",
+        "calc_atom_mass_axis",
+        "calc_atom_monoisotopic_mass",
         "calc_dna_mass",
         "calc_dna_mass_axis",
         "calc_dna_monoisotopic_mass",

@@ -11,9 +11,21 @@ isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs)
 ```
 
 Generate a two-column `(mass, relative intensity)` array. `input` may be a
-numeric neutral mass or sequence. `mass_kwargs` are forwarded to
-`gen_mass_axis`, including `isotope_spacing`, peptide `ion_type`, and nucleic
-acid `threeend` and `fiveend`.
+numeric neutral mass, biopolymer sequence, or elemental formula. Select
+`type="ATOM"` for a formula; ATOM supports the FFT method only. `mass_kwargs`
+are forwarded to `gen_mass_axis`, including `isotope_spacing`, peptide
+`ion_type`, and nucleic acid `threeend` and `fiveend`.
+
+## Elemental formulas
+
+```python
+calc_atom_monoisotopic_mass(formula)
+calc_atom_mass_axis(formula, isolen=128, isotope_spacing=1.0033)
+```
+
+These functions parse formulas with the native ATOM parser. The mass axis
+begins at the light-isotope mass used for isotope index zero by the FFT
+calculation.
 
 ## Protein masses
 
@@ -115,4 +127,5 @@ gen_mass_axis(
 )
 ```
 
-Dispatch numeric mass or sequence input to the appropriate axis calculator.
+Dispatch numeric mass, sequence, or ATOM formula input to the appropriate axis
+calculator.

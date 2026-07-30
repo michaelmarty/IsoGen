@@ -44,6 +44,7 @@ add_library(isogen SHARED
                 ${FFTW_DIR}/fftw3.h
                 isogenpep.c isogenpep.h
                 isogenrna.c isogenrna.h
+                isogenatom.c isogenatom.h
         isogen_test.cpp
 )
 set_target_properties(isogen PROPERTIES LINKER_LANGUAGE C)

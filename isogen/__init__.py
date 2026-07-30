@@ -3,6 +3,8 @@
 from ._version import __version__
 from .isogen import isodist
 from .mass import (
+    calc_atom_mass_axis,
+    calc_atom_monoisotopic_mass,
     calc_dna_mass,
     calc_dna_mass_axis,
     calc_dna_monoisotopic_mass,
@@ -19,6 +21,8 @@ from .mass import (
 __all__ = [
     "__version__",
     "isodist",
+    "calc_atom_mass_axis",
+    "calc_atom_monoisotopic_mass",
     "calc_dna_mass",
     "calc_dna_mass_axis",
     "calc_dna_monoisotopic_mass",

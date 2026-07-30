@@ -12,9 +12,11 @@ def isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs):
     """Generate a mass/intensity isotope distribution.
 
     Args:
-        input: Numeric neutral mass or a protein/RNA/DNA sequence.
-        type: Input type: ``PEPTIDE``, ``RNA``, or ``DNA``. DNA uses the
-            RNA intensity model with a DNA-specific mass axis.
+        input: Numeric neutral mass, protein/RNA/DNA sequence, or elemental
+            formula.
+        type: Input type: ``PEPTIDE``, ``RNA``, ``DNA``, or ``ATOM``. DNA
+            uses the RNA intensity model with a DNA-specific mass axis.
+            ATOM accepts formulas and uses the FFT method.
         isolen: Number of isotope values to return.
         method: Distribution engine, either ``FFT`` or ``NN``.
         **mass_kwargs: Options forwarded to :func:`mass.gen_mass_axis`, such
@@ -24,6 +26,8 @@ def isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs):
         A ``(isolen, 2)`` NumPy array containing neutral masses in column zero
         and relative intensities in column one.
     """
+    type = type.upper() if isinstance(type, str) else type
+    method = method.upper() if isinstance(method, str) else method
     int_dist = wrapper.gen_isodist(input, type=type, isolen=isolen, method=method)
     mass_axis = mass.gen_mass_axis(input, type=type, isolen=isolen, **mass_kwargs)
     output = np.transpose(np.vstack((mass_axis, int_dist)))
