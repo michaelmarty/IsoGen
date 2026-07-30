@@ -1,5 +1,6 @@
 # IsoGen
-IsoGen is a toolbox for predicting isotope distributions in mass spectrometry data.
+IsoGen is a toolbox for predicting isotope distributions from protein, RNA,
+DNA, neutral-mass, and elemental-formula inputs.
 
 It includes both an absolute FFT-based calculation and a neural network prediction.
 
@@ -17,20 +18,14 @@ Install a published wheel from PyPI:
 python -m pip install isogen
 ```
 
+IsoGen requires Python 3.13 or newer.
+
 Precompiled native libraries are provided for 64-bit Windows and Linux. Linux
 requires the FFTW 3 runtime; published Linux wheels bundle it during the
 manylinux repair step. For other platforms, build the native library from
 source using CMake.
 
 ## Usage
-
-A simple native test executable is provided. It can be run with:
-
-```shell
-isogen_test.exe -mass 10000
-```
-
-This will create an isotope distribution printout for a mass of 10 kDa.
 
 From Python:
 
@@ -100,15 +95,23 @@ From the command line:
 
 ```shell
 isogen dist ACDEFGHIK --type PEPTIDE --isolen 64
+isogen dist C6H12O6 --type ATOM --isolen 32
 isogen plot
 ```
 
 See `python -m isogen --help` for all options.
 
+The source repository also builds a native development executable named
+`isogen_test.exe` on Windows (`isogen_test` on Linux). It can be run from the
+repository's `bin` directory with `isogen_test.exe -mass 10000`, but it is not
+installed by the Python wheel. Use the `isogen` console command for installed
+packages.
+
 ## Documentation
 
-The full user guide and API reference are in the
-[`docs`](docs/index.md) directory. To preview them locally:
+Read the [full IsoGen documentation](https://michaelmarty.github.io/IsoGen/).
+The documentation sources are also available in the repository's `docs`
+directory. To preview them locally:
 
 ```shell
 python -m pip install -e ".[docs]"
@@ -125,6 +128,12 @@ python -m pip install -e ".[test]"
 python -m pytest
 ```
 
+Development and model-training modules have additional dependencies:
+
+```shell
+python -m pip install -e ".[training]"
+```
+
 ## License
 
 IsoGen is released under the BSD 3-Clause License. See LICENSE for details.
@@ -135,7 +144,7 @@ PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT (publication to follow
 
 If you have any questions, please email mtmarty@utexas.edu or open a ticket on GitHub.
 
-TODO: Remove from UniDec and import IsoGen as a dependency.
-IsoGen Atom inclusion in the package.
 
-Test and deploy.
+## TODO
+
+Strip remaining dependencies.

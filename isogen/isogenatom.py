@@ -1,5 +1,13 @@
-from isogen_base import *
-from isogen_tools import *
+import os
+
+import numpy as np
+
+if __package__:
+    from .isogen_base import IsoGenEngineBase, IsoGenModelBase
+    from .isogen_tools import formula_to_vector, get_dist_from_formula
+else:
+    from isogen_base import IsoGenEngineBase, IsoGenModelBase
+    from isogen_tools import formula_to_vector, get_dist_from_formula
 
 
 class IsoGenAtomEngine(IsoGenEngineBase):
@@ -18,6 +26,9 @@ class IsoGenAtomEngine(IsoGenEngineBase):
 
 
 if __name__ == "__main__":
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+
     # seq = "C2H5O"
     # vec = formula_to_vector(seq)
 
@@ -43,8 +54,6 @@ if __name__ == "__main__":
     testformulas = ["C2H5O", "H8N2O4W", "S8", "CHCl3", "C60", "CHBr3"]
     mpl.use("WxAgg")
     isolen = 4096
-    import matplotlib.pyplot as plt
-    import matplotlib as mpl
     eng = IsoGenAtomEngine(isolen=isolen)
     for i, f in enumerate(testformulas):
         maxval = 10

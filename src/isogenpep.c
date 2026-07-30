@@ -170,10 +170,14 @@ int pep_seq_to_nnvector(const char* seq, float* vector) {
 
 float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset){
     float* vector = (float *) calloc(20, sizeof(float));
+    if (vector == NULL) {
+        return -1.0f;
+    }
     int aas = pep_seq_to_nnvector(seq, vector);
 
     if (aas > 1000) {
         printf("Sequence contains too many amino acids (>1000).");
+        free(vector);
         return -1.0f;
     }
 
@@ -201,7 +205,12 @@ float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
     }
 
 
-    neural_net(vector, nn_isodist, weights);
+    if (neural_net(vector, nn_isodist, weights) != 0) {
+        free(vector);
+        free(nn_isodist);
+        FreeIsogenWeights(weights);
+        return -1.0f;
+    }
     free(vector);
     FreeIsogenWeights(weights);
 
@@ -396,6 +405,7 @@ float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen
 
     if (aas > 1000) {
         printf("Sequence contains too many amino acids (>1000).");
+        free(formulalist);
         return -1.0f;
     }
 
@@ -409,8 +419,17 @@ float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen
 
 
     float* fft_isodist = (float*)calloc(fft_isolen, sizeof(float));
+    if (fft_isodist == NULL) {
+        free(formulalist);
+        return -1.0f;
+    }
 
     float maxval = fft_list_to_dist(formulalist, fft_isolen, fft_isodist);
+    if (maxval < 0.0f) {
+        free(fft_isodist);
+        free(formulalist);
+        return -1.0f;
+    }
 
     if (fft_isolen < isolen) {
         for (int i = fft_isolen - offset - 1; i >= 0; i--) {
@@ -442,13 +461,25 @@ float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen
 float fft_pep_mass_to_dist(const float mass, float *isodist, const int isolen, const int offset)
 {
     int* fftlist = (int*)calloc(5, sizeof(int));
+    if (fftlist == NULL) {
+        return -1.0f;
+    }
     pep_mass_to_fftlist(mass, fftlist);
 
     int fft_isolen = fft_pep_mass_to_isolen(mass);
 
     float* fft_isodist = (float*)calloc(fft_isolen, sizeof(float));
+    if (fft_isodist == NULL) {
+        free(fftlist);
+        return -1.0f;
+    }
 
     float max_val = fft_list_to_dist(fftlist, fft_isolen, fft_isodist);
+    if (max_val < 0.0f) {
+        free(fft_isodist);
+        free(fftlist);
+        return -1.0f;
+    }
 
     if (fft_isolen < isolen) {
         for (int i = fft_isolen - offset - 1; i >= 0; i--) {
@@ -480,7 +511,7 @@ float fft_pep_mass_to_dist(const float mass, float *isodist, const int isolen, c
 float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
     float* vector = (float*)calloc(5, sizeof(float));
     if (vector == NULL) {
-        printf("Error: Could not allocate memory for vector\n");
+        return -1.0f;
     }
 
     mass_to_vector(mass, vector);
@@ -489,6 +520,7 @@ float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, co
 
     if (nn_isolen == -1) {
         printf("Error: Mass outside of allowed NN mass range: %f\n", mass);
+        free(vector);
         return -1;
     }
 
@@ -500,7 +532,12 @@ float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, co
     else if ( nn_isolen == 64 ){ weights = LoadWeights(weights, isogenmass_model_64_bin); }
     else { weights = LoadWeights(weights, isogenmass_model_128_bin); }
 
-    neural_net(vector, nn_isodist, weights);
+    if (neural_net(vector, nn_isodist, weights) != 0) {
+        free(vector);
+        free(nn_isodist);
+        FreeIsogenWeights(weights);
+        return -1.0f;
+    }
     free(vector);
     FreeIsogenWeights(weights);
 

@@ -38,6 +38,24 @@ assert distribution[0, 0] == isogen.calc_pep_monoisotopic_mass("PEPTIDE")
 RNA accepts `T` as uracil, and DNA accepts `U` as thymine for mass
 calculations.
 
+## Elemental-formula input
+
+Select `type="ATOM"` to calculate a direct isotope distribution from a
+formula:
+
+```python
+distribution = isogen.isodist(
+    "C6H12O6",
+    type="ATOM",
+    isolen=32,
+)
+```
+
+ATOM uses the FFT method only. Its first mass is the formula's light-isotope
+mass, and its intensity vector is base-peak normalized. Formulas use standard
+element symbols followed by optional nonnegative integer counts, such as
+`H2O`, `C6H12O6`, or `NaCl`.
+
 ## Axis length and spacing
 
 `isolen` controls both columns, so the mass axis always matches the intensity
@@ -49,6 +67,16 @@ distribution = isogen.isodist(
     type="RNA",
     isolen=16,
     isotope_spacing=1.0029,
+)
+```
+
+Formula spacing is editable in the same way:
+
+```python
+formula_distribution = isogen.isodist(
+    "C6H12O6",
+    type="ATOM",
+    isotope_spacing=1.0033,
 )
 ```
 

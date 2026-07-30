@@ -20,13 +20,6 @@ LIGHT_ISOTOPES = {
 }
 
 
-pytestmark = pytest.mark.skipif(
-    isogenwrapper._atom_formula_to_vector_c is None
-    or isogenwrapper._fft_atom_formula_to_dist_c is None,
-    reason="The loaded native IsoGen library lacks elemental-formula support",
-)
-
-
 def pyteomics_formula_distribution(formula, isolen):
     """Bin formula isotopologues by nominal neutron shift."""
     distribution = np.zeros(isolen)

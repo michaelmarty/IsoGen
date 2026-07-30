@@ -5,7 +5,15 @@ import sys
 
 import numpy as np
 
-from .isogen import isodist
+if __package__:
+    from .isogen import isodist
+    from .plot_tests import plot_isodist_examples
+else:
+    from isogen import isodist
+    try:
+        from plot_tests import plot_isodist_examples
+    except ImportError:
+        pass
 
 
 def parse_input(value):
@@ -150,7 +158,10 @@ def run_plots(args):
         raise ValueError("--dpi must be positive")
 
     import matplotlib.pyplot as plt
-    from .plot_tests import plot_isodist_examples
+    if __package__:
+        from .plot_tests import plot_isodist_examples
+    else:
+        from plot_tests import plot_isodist_examples
 
     fig, _ = plot_isodist_examples(isolen=args.isolen, method=args.method)
     if args.save:

@@ -1,8 +1,8 @@
 # IsoGen
 
-IsoGen generates isotope distributions for protein, RNA, and DNA analytes. It
-accepts either a neutral mass or a sequence and returns a two-column NumPy
-array containing neutral mass and relative intensity.
+IsoGen generates isotope distributions for protein, RNA, DNA, neutral-mass,
+and elemental-formula inputs. It returns a two-column NumPy array containing
+neutral mass and relative intensity.
 
 ```python
 import isogen
@@ -15,15 +15,15 @@ distribution = isogen.isodist(
 )
 ```
 
-The first mass is the monoisotopic mass for sequence input. Subsequent masses
-use a configurable isotope spacing: 1.0033 Da for peptides and 1.0027 Da for
-nucleic acids by default.
+The first mass is the monoisotopic mass for sequence or elemental-formula
+input. Subsequent masses use a configurable isotope spacing: 1.0033 Da for
+peptides and formulas and 1.0027 Da for nucleic acids by default.
 
 ## Features
 
 - FFT and neural-network isotope intensity calculations
-- Neutral-mass and sequence input
-- Protein, RNA, and DNA mass axes
+- Neutral-mass, sequence, and elemental-formula input
+- Protein, RNA, DNA, and ATOM mass axes
 - Intact proteins and a, b, c, x, y, and z fragment ions
 - Configurable RNA and DNA terminal chemistry
 - A command-line interface for CSV output and example stick plots

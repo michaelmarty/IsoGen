@@ -1,6 +1,11 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from isogen_tools import *
+import numpy as np
+
+if __package__:
+    from .isogen_tools import rnaseq_to_dist
+else:
+    from isogen_tools import rnaseq_to_dist
 
 """
 Uses the compositional model to predict the isotopic distribution of a nucleic acid

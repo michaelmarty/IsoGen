@@ -1,7 +1,11 @@
 import numpy as np
 import os
 import time
-from isogen_tools import get_dist_from_formula
+
+if __package__:
+    from .isogen_tools import get_dist_from_formula
+else:
+    from isogen_tools import get_dist_from_formula
 
 def parse_formulas(formulas, isolen=128, cutoff=0.001):
     dists = []
@@ -38,7 +42,7 @@ if __name__ == "__main__":
     starttime= time.perf_counter()
 
     # Search pubchem and get all atomic formulas
-    os.chdir("Z:\Group Share\JGP\PubChem")
+    os.chdir(r"Z:\Group Share\JGP\PubChem")
     fname = "CID-Mass.txt"
     formulas = np.genfromtxt(fname, dtype=str, delimiter="\t", max_rows=100000000, usecols=[1])
     formulas = cleanup_formulas(formulas)

@@ -1,6 +1,7 @@
 #include "isogendep.h"
 // #include <complex.h>
 #include "fftw3.h"
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +24,6 @@ const char *elements[] = {
 };
 
 
-
-
 char* aa_names[] = {
     "A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"};
 
@@ -37,7 +36,13 @@ float softsign(const float x) {return x / (1.0f + fabsf(x));}
 float sigmoid(const float x) {return 1.0f / (1.0f + expf(-x));}
 
 struct IsoGenWeights SetupWeights(const int veclen, const int outlen) {
-    struct IsoGenWeights weights;
+    struct IsoGenWeights weights = {0};
+    if (veclen <= 0 || outlen <= 0 ||
+        veclen > INT_MAX / outlen ||
+        outlen > INT_MAX / outlen) {
+        return weights;
+    }
+
     weights.vl1 = veclen;
     weights.vl2 = outlen;
     weights.vl3 = outlen;
@@ -45,7 +50,14 @@ struct IsoGenWeights SetupWeights(const int veclen, const int outlen) {
     weights.ml1 = weights.vl1 * weights.vl2;
     weights.ml2 = weights.vl2 * weights.vl3;
     weights.ml3 = weights.vl3 * weights.vl4;
-    weights.tot = weights.ml1 + weights.vl2 + weights.ml2 + weights.vl3 + weights.ml3 + weights.vl4;
+    const size_t total =
+        (size_t)weights.ml1 + (size_t)weights.vl2 +
+        (size_t)weights.ml2 + (size_t)weights.vl3 +
+        (size_t)weights.ml3 + (size_t)weights.vl4;
+    if (total > INT_MAX) {
+        return (struct IsoGenWeights){0};
+    }
+    weights.tot = (int)total;
     // Set up the weights and biases
     weights.w1 = (float *) calloc(weights.ml1, sizeof(float));
     weights.b1 = (float *) calloc(weights.vl2, sizeof(float));
@@ -56,29 +68,12 @@ struct IsoGenWeights SetupWeights(const int veclen, const int outlen) {
 
     // Check for null
     if (weights.w1 == NULL || weights.b1 == NULL || weights.w2 == NULL || weights.b2 == NULL || weights.w3 == NULL || weights.b3 == NULL) {
-        printf("Error allocating memory for weights\n");
-        exit(100);
+        FreeIsogenWeights(weights);
+        return (struct IsoGenWeights){0};
     }
     return weights;
 }
 
-
-
-//back up
-// void isogenmass(const float mass, float *isodist) {
-//     // Create Encoding Vector
-//     float vector[5];
-//     mass_to_vector(mass, vector);
-//     // Setup and Load Weights
-//     struct IsoGenWeights weights = SetupWeights(5,64);
-//     weights = LoadWeights(weights, isogenrna_model_64_bin);
-//     // Run the Neural Net
-//     neural_net(vector, isodist, weights);
-//
-//
-//     // Free Memory
-//     FreeWeights(weights);
-// }
 
 // Free Weights
 void FreeIsogenWeights(const struct IsoGenWeights weights) {
@@ -92,24 +87,27 @@ void FreeIsogenWeights(const struct IsoGenWeights weights) {
 
 // Load the weights
 struct IsoGenWeights LoadWeights(const struct IsoGenWeights weights, const unsigned char *model_weights) {
-    // Allocate memory for the default weights
-    float *default_weights = calloc(weights.tot, sizeof(float));
-    if (default_weights == NULL) {
-        printf("Error allocating memory for default weights\n");
-        exit(100);
+    if (model_weights == NULL ||
+        weights.w1 == NULL || weights.b1 == NULL ||
+        weights.w2 == NULL || weights.b2 == NULL ||
+        weights.w3 == NULL || weights.b3 == NULL) {
+        FreeIsogenWeights(weights);
+        return (struct IsoGenWeights){0};
     }
-    // Copy the default weights
-    memcpy(default_weights, model_weights, weights.tot * sizeof(float));
 
     // Copy the weights into the object
-    memcpy(weights.w1, default_weights, weights.ml1 * sizeof(float));
-    memcpy(weights.b1, default_weights + weights.ml1, weights.vl2 * sizeof(float));
-    memcpy(weights.w2, default_weights + weights.ml1 + weights.vl2, weights.ml2 * sizeof(float));
-    memcpy(weights.b2, default_weights + weights.ml1 + weights.vl2 + weights.ml2, weights.vl3 * sizeof(float));
-    memcpy(weights.w3, default_weights + weights.ml1 + weights.vl2 + weights.ml2 + weights.vl3, weights.ml3 * sizeof(float));
-    memcpy(weights.b3, default_weights + weights.ml1 + weights.vl2 + weights.ml2 + weights.vl3 + weights.ml3, weights.vl4 * sizeof(float));
-    // Free Memory
-    free(default_weights);
+    const unsigned char* source = model_weights;
+    memcpy(weights.w1, source, weights.ml1 * sizeof(float));
+    source += weights.ml1 * sizeof(float);
+    memcpy(weights.b1, source, weights.vl2 * sizeof(float));
+    source += weights.vl2 * sizeof(float);
+    memcpy(weights.w2, source, weights.ml2 * sizeof(float));
+    source += weights.ml2 * sizeof(float);
+    memcpy(weights.b2, source, weights.vl3 * sizeof(float));
+    source += weights.vl3 * sizeof(float);
+    memcpy(weights.w3, source, weights.ml3 * sizeof(float));
+    source += weights.ml3 * sizeof(float);
+    memcpy(weights.b3, source, weights.vl4 * sizeof(float));
     return weights;
 }
 
@@ -173,10 +171,22 @@ void matrix_vector_multiply(const float* matrix, const float* vector, const floa
 #endif
 
 
-void neural_net(const float *vector, float *isodist, const struct IsoGenWeights weights) {
+int neural_net(const float *vector, float *isodist, const struct IsoGenWeights weights) {
+    if (vector == NULL || isodist == NULL ||
+        weights.w1 == NULL || weights.b1 == NULL ||
+        weights.w2 == NULL || weights.b2 == NULL ||
+        weights.w3 == NULL || weights.b3 == NULL) {
+        return -1;
+    }
+
     //Allocate the memory for the intermediate values
     float *l1 = (float *) calloc(weights.vl2, sizeof(float));
     float *l2 = (float *) calloc(weights.vl3, sizeof(float));
+    if (l1 == NULL || l2 == NULL) {
+        free(l1);
+        free(l2);
+        return -1;
+    }
 
     // Calculate the First Layer
     // for (int i = 0; i < weights.vl2; i++) {
@@ -211,6 +221,7 @@ void neural_net(const float *vector, float *isodist, const struct IsoGenWeights 
     // Free Memory
     free(l1);
     free(l2);
+    return 0;
 }
 
 void mass_to_vector(const float mass, float *vector) {
@@ -234,60 +245,79 @@ void mass_to_vector(const float mass, float *vector) {
 float fft_list_to_dist(const int isolist[5], const int length, float* isodist)
 {
     // Isolist as {carbon, hydrogen, nitrogen, oxygen, sulfur}
-    int const complen = (int)(length / 2) + 1;
+    if (isolist == NULL || isodist == NULL || length <= 0)
+    {
+        return -1.0f;
+    }
 
+    const int complen = length / 2 + 1;
+    fftw_complex* hft = NULL;
+    fftw_complex* cft = NULL;
+    fftw_complex* nft = NULL;
+    fftw_complex* oft = NULL;
+    fftw_complex* sft = NULL;
+    fftw_complex* allft = NULL;
+    double* buffer = NULL;
+    fftw_plan plan_irfft = NULL;
+    float result = -1.0f;
 
-    fftw_complex* hft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    fftw_complex* cft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    fftw_complex* nft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    fftw_complex* oft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    fftw_complex* sft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    hft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    cft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    nft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    oft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    sft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
 
     // Check for null pointers
     if (hft == NULL || cft == NULL || nft == NULL || oft == NULL || sft == NULL)
     {
-        printf("Error: Could not allocate memory for fftw_complex objects\n");
-        return 1;
+        goto cleanup;
     }
 
-    setup_ft(1, hft, length, complen);
-    setup_ft(6, cft, length, complen);
-    setup_ft(7, nft, length, complen);
-    setup_ft(8, oft, length, complen);
-    setup_ft(16, sft, length, complen);
+    if (setup_ft(1, hft, length, complen) != 0 ||
+        setup_ft(6, cft, length, complen) != 0 ||
+        setup_ft(7, nft, length, complen) != 0 ||
+        setup_ft(8, oft, length, complen) != 0 ||
+        setup_ft(16, sft, length, complen) != 0)
+    {
+        goto cleanup;
+    }
 
-    fftw_complex* allft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    double* buffer = (double*)fftw_malloc(length * sizeof(double));
+    allft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    buffer = (double*)fftw_malloc(length * sizeof(double));
     // Check for null pointers
     if (allft == NULL || buffer == NULL)
     {
-        printf("Error: Could not allocate memory for fftw_complex objects\n");
-        return 1;
+        goto cleanup;
     }
-    //ensure normalizing
 
     convolve_all(isolist, allft, cft, hft, nft, oft, sft, complen);
+    plan_irfft = fftw_plan_dft_c2r_1d(length, allft, buffer, FFTW_ESTIMATE);
+    if (plan_irfft == NULL)
+    {
+        goto cleanup;
+    }
+    fftw_execute(plan_irfft);
+
+    const double max_val = normalize_isodist(buffer, length);
+    for (int i = 0; i < length; i++)
+    {
+        isodist[i] = (float)buffer[i];
+    }
+    result = (float)max_val;
+
+cleanup:
+    if (plan_irfft != NULL)
+    {
+        fftw_destroy_plan(plan_irfft);
+    }
     fftw_free(hft);
     fftw_free(cft);
     fftw_free(nft);
     fftw_free(oft);
     fftw_free(sft);
-
-    fftw_plan plan_irfft = fftw_plan_dft_c2r_1d(length, allft, buffer, FFTW_ESTIMATE);
-    fftw_execute(plan_irfft);
-    fftw_destroy_plan(plan_irfft);
     fftw_free(allft);
-
-    const double max_val = normalize_isodist(buffer, length);
-
-    //memcpy buffer to isodist
-    for (int i = 0; i < length; i++)
-    {
-        isodist[i] = (float)buffer[i];
-    }
-
     fftw_free(buffer);
-    return (float)max_val;
+    return result;
 }
 
 
@@ -324,6 +354,7 @@ void construct_isotope_array(const int number, double* isotope_array, const int 
 }
 
 int fft_len = 33;
+static const int precomputed_isotope_length = 64;
 
 
 void copy_fft(const fftw_complex* in, fftw_complex* out, const int length)
@@ -336,7 +367,7 @@ void copy_fft(const fftw_complex* in, fftw_complex* out, const int length)
 }
 
 
-void fft_from_precomputed(const int number, fftw_complex* outft, const int length)
+static int fft_from_precomputed(const int number, fftw_complex* outft, const int length)
 {
     const int index = number - 1;
     const int start = index * fft_len;
@@ -344,28 +375,34 @@ void fft_from_precomputed(const int number, fftw_complex* outft, const int lengt
     if (length != fft_len)
     {
         printf("Error: Requested isotope dist length is not the same length as the precomputed FFT\n");
-        exit(1);
+        return -1;
     }
     if (start + length > arraylen)
     {
         printf("Error: Requested isotope number is too large\n");
-        exit(1);
+        return -1;
     }
     for (int i = 0; i < length; i++)
     {
         outft[i][0] = fftarray[start + i][0];
         outft[i][1] = fftarray[start + i][1];
     }
+    return 0;
 }
 
 int use_precomputed_fft = 1;
 
 
-void setup_ft(const int number, fftw_complex* outft, const int length, const int ftlen)
+int setup_ft(const int number, fftw_complex* outft, const int length, const int ftlen)
 {
-    if (ftlen == fft_len && use_precomputed_fft)
+    if (number < 1 || number > numelements)
     {
-        fft_from_precomputed(number, outft, ftlen);
+        return -1;
+    }
+
+    if (length == precomputed_isotope_length && ftlen == fft_len && use_precomputed_fft)
+    {
+        return fft_from_precomputed(number, outft, ftlen);
     }
     else
     {
@@ -374,14 +411,20 @@ void setup_ft(const int number, fftw_complex* outft, const int length, const int
         if (array == NULL)
         {
             printf("Error: Could not allocate memory for isotope arrays\n");
-            exit(1);
+            return -1;
         }
         construct_isotope_array(number, array, length);
 
         fftw_plan plan = fftw_plan_dft_r2c_1d(length, array, outft, FFTW_ESTIMATE);
+        if (plan == NULL)
+        {
+            free(array);
+            return -1;
+        }
         fftw_execute(plan);
         fftw_destroy_plan(plan);
         free(array);
+        return 0;
     }
 }
 

@@ -40,3 +40,4 @@ if __name__ == "__main__":
     test_rna_seq = "AUGCAGUACGUA"
 
     print(isodist(10000, type="PEPTIDE", isolen=128, method="FFT"))
+    print(isodist("PdW2CO3", type="ATOM", isolen=16, method="FFT"))

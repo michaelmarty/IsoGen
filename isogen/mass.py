@@ -2,6 +2,11 @@ import numpy as np
 import re
 import os
 
+if __package__:
+    from .isogenwrapper import atom_formula_to_vector
+else:
+    from isogenwrapper import atom_formula_to_vector
+
 aa_masses = {'A': 71.0788, 'C': 103.1388, 'D': 115.0886, 'E': 129.1155, 'F': 147.1766,
              'G': 57.0519, 'H': 137.1411, 'I': 113.1594, 'K': 128.1741, 'L': 113.1594,
              'M': 131.1926, 'N': 114.1038, 'P': 97.1167, 'Q': 128.1307, 'R': 156.1875,
@@ -418,8 +423,6 @@ def calc_atom_monoisotopic_mass(formula):
     Returns:
         Light-isotope neutral mass in daltons.
     """
-    from .isogenwrapper import atom_formula_to_vector
-
     atom_counts = atom_formula_to_vector(formula)
     return float(np.dot(atom_counts, atom_masses_monoisotopic))
 

@@ -8,6 +8,8 @@ Install a published wheel:
 python -m pip install isogen
 ```
 
+IsoGen requires Python 3.13 or newer.
+
 IsoGen publishes precompiled native libraries for 64-bit Windows and Linux.
 Linux installations require the FFTW 3 runtime; released manylinux wheels
 bundle that dependency. Other platforms require a native build from source.
@@ -31,6 +33,12 @@ rna = isogen.isodist("AUGCAGUACGUA", type="RNA", isolen=64)
 dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
 ```
 
+For an elemental formula, select the FFT-only `ATOM` input type:
+
+```python
+glucose = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
+```
+
 The result has shape `(isolen, 2)`. Column zero is neutral mass and column one
 is relative intensity:
 
@@ -39,8 +47,9 @@ masses = protein[:, 0]
 intensities = protein[:, 1]
 ```
 
-`type` and `method` currently use uppercase names. Supported values are
-`PEPTIDE`, `RNA`, and `DNA`, and `FFT` and `NN`, respectively.
+Supported `type` values are `PEPTIDE`, `RNA`, `DNA`, and `ATOM`; names are
+case-insensitive in the Python API. `FFT` and `NN` are available for
+biopolymer inputs. `ATOM` supports `FFT` only.
 
 ## Peptide ion types
 
@@ -123,3 +132,4 @@ nn_result = isogen.isodist("PEPTIDE", method="NN")
 
 FFT performs the direct isotope calculation. The neural-network engine uses
 the packaged pretrained model and can be useful for rapid approximation.
+Elemental formulas always use the direct FFT calculation.

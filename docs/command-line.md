@@ -21,8 +21,15 @@ Write it to a file:
 isogen dist AUGCAGUACGUA --type RNA --output rna.csv
 ```
 
+Generate a distribution from an elemental formula:
+
+```shell
+isogen dist C6H12O6 --type ATOM --isolen 32 --output glucose.csv
+```
+
 The output contains a header followed by `mass,intensity` rows. Use
-`--method FFT` or `--method NN` to choose the calculation engine.
+`--method FFT` or `--method NN` to choose the calculation engine. `ATOM`
+inputs support `FFT` only.
 
 ## Example stick plots
 

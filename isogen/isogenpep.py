@@ -3,8 +3,13 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import time
-from isogen_base import *
-from isogen_tools import peptide_to_dist, peptide_to_vector
+
+if __package__:
+    from .isogen_base import IsoGenEngineBase, IsoGenModelBase
+    from .isogen_tools import peptide_to_dist, peptide_to_vector
+else:
+    from isogen_base import IsoGenEngineBase, IsoGenModelBase
+    from isogen_tools import peptide_to_dist, peptide_to_vector
 
 
 class IsoGenPepEngine(IsoGenEngineBase):

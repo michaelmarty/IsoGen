@@ -1,7 +1,20 @@
 # Mass calculations
 
 IsoGen exposes average and monoisotopic neutral-mass functions for proteins,
-RNA, and DNA.
+RNA, DNA, and elemental formulas.
+
+## Elemental formulas
+
+Calculate a formula's light-isotope mass or matching mass axis:
+
+```python
+formula_mass = isogen.calc_atom_monoisotopic_mass("C6H12O6")
+formula_axis = isogen.calc_atom_mass_axis("C6H12O6", isolen=8)
+```
+
+The formula parser supports the same 109 elements as the native ATOM FFT
+calculation. The count vector is available from
+`isogen.isogenwrapper.atom_formula_to_vector`.
 
 ## Proteins
 
@@ -84,7 +97,8 @@ Or calculate the origin from a sequence:
 peptide_axis = isogen.calc_pep_mass_axis("PEPTIDE", isolen=8)
 rna_axis = isogen.calc_rna_mass_axis("AUGC", isolen=8)
 dna_axis = isogen.calc_dna_mass_axis("ATGC", isolen=8)
+formula_axis = isogen.calc_atom_mass_axis("C6H12O6", isolen=8)
 ```
 
-`gen_mass_axis` dispatches between numeric and sequence input in the same way
-as `isodist`.
+`gen_mass_axis` dispatches between numeric, sequence, and formula input in the
+same way as `isodist`.

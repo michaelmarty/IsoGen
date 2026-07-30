@@ -7,7 +7,7 @@ be built and tested separately.
 
 1. Update `isogen/_version.py`.
 2. Update the changelog or release notes.
-3. Confirm the native binaries in `bin/` were built from the intended commit.
+3. Confirm the native binaries in `bin/` were built from the intended commit and are signed.
 4. Review `THIRD_PARTY_NOTICES.md` and include the exact licenses that apply to
    the FFTW and Intel runtime binaries being distributed.
 5. Commit and tag the release, for example `v0.1.0`.
@@ -18,6 +18,13 @@ Install the release tools:
 
 ```shell
 python -m pip install --upgrade build twine
+```
+
+Delete all previous build output before creating a release. This prevents an
+older platform wheel from being uploaded with the new release:
+
+```shell
+python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('build', 'dist', 'wheelhouse')]"
 ```
 
 Build a source distribution and a wheel for the current platform:
@@ -50,6 +57,7 @@ tree:
 python -m venv wheel-test
 wheel-test/Scripts/python -m pip install dist/isogen-*-win_amd64.whl
 wheel-test/Scripts/python -c "import isogen; print(isogen.isodist(1000, isolen=8))"
+wheel-test/Scripts/python -c "import isogen; print(isogen.isodist('C6H12O6', type='ATOM', isolen=8))"
 wheel-test/Scripts/isogen dist PEPTIDE --isolen 8
 ```
 

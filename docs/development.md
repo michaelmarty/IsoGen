@@ -18,6 +18,17 @@ Pyteomics is intentionally an optional test dependency. The tests use it as an
 independent reference for peptide fragment masses and elemental-composition
 masses, but the installed IsoGen runtime does not import or require it.
 
+## Model development
+
+Install the optional dependencies used by model and training modules:
+
+```shell
+python -m pip install -e ".[training]"
+```
+
+This extra installs Torch, pandas, and molmass. They are not required by the
+top-level native `isodist` API.
+
 ## Documentation
 
 Install the documentation tools:
@@ -59,3 +70,8 @@ wheel. Linux development environments must provide the FFTW 3 runtime.
 Pretrained neural-network artifacts are stored in `isogen/models`. The shared
 model loader uses that directory by default, and model training saves new
 `.pth` and `.bin` artifacts there unless an explicit `working_dir` is supplied.
+
+The native build also creates `isogen_test.exe` on Windows and `isogen_test`
+on Linux. These are source-development test executables in the repository's
+`bin` directory; they are not installed by the Python wheel. Installed users
+should use the `isogen` console command or `python -m isogen`.

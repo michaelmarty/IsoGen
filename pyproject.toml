@@ -8,9 +8,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "isogen"
 dynamic = ["version"]
-description = "Fast isotope-distribution calculations for proteins and nucleic acids"
+description = "Fast isotope-distribution calculations for proteins, nucleic acids, and elemental formulas"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.13"
 license = "BSD-3-Clause"
 license-files = [
     "LICENSE",
@@ -28,18 +28,15 @@ keywords = [
     "protein",
     "DNA",
     "RNA",
+    "elemental formula",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Operating System :: Microsoft :: Windows :: Windows 10",
     "Operating System :: Microsoft :: Windows :: Windows 11",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Chemistry",
@@ -57,6 +54,11 @@ test = [
 docs = [
     "mkdocs>=1.6",
 ]
+training = [
+    "molmass>=2025.4.14",
+    "pandas>=2.3",
+    "torch>=2.7",
+]
 release = [
     "build>=1.2",
     "twine>=5",
@@ -69,6 +71,7 @@ isogen = "isogen.__main__:main"
 Homepage = "https://github.com/michaelmarty/IsoGen"
 Repository = "https://github.com/michaelmarty/IsoGen"
 Issues = "https://github.com/michaelmarty/IsoGen/issues"
+Documentation = "https://michaelmarty.github.io/IsoGen/"
 
 [tool.setuptools]
 packages = ["isogen"]

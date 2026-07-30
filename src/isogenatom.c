@@ -132,7 +132,13 @@ static int formula_vector_to_probability_dist(
             continue;
         }
 
-        setup_ft(atomic_index + 1, elementft, length, ftlen);
+        if (setup_ft(atomic_index + 1, elementft, length, ftlen) != 0)
+        {
+            fftw_free(allft);
+            fftw_free(elementft);
+            fftw_free(buffer);
+            return -1;
+        }
 
         for (int i = 0; i < ftlen; i++)
         {
