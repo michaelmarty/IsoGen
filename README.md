@@ -3,7 +3,7 @@ IsoGen is a toolbox for predicting isotope distributions in mass spectrometry da
 
 It includes both an absolute FFT-based calculation and a neural network prediction.
 
-Pretrained models are included for both peptides and RNA based on either average mass or sequence.
+Pretrained models are included for both peptides and RNA based on either average mass or sequence. DNA prediction uses the RNA model due to the similarity of their elemental compositions.
 
 The FFT methods are absolute and are limited only by the accuracy of the data you put in. They are a little faster, especially on larger species.
 
