@@ -14,20 +14,23 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Handle Windows encoding issues
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-
-def run_command(cmd, description, check=True):
+def run_command(cmd, description, timeout=300):
     """Run a shell command and handle errors."""
     print(f"\n[*] {description}...")
     try:
-        result = subprocess.run(cmd, shell=True, check=check)
-        return result.returncode == 0
+        result = subprocess.run(cmd, shell=True, timeout=timeout)
+        if result.returncode == 0:
+            print(f"[OK] {description} completed")
+            return True
+        else:
+            print(f"[!] {description} failed with exit code {result.returncode}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"[!] {description} timed out after {timeout} seconds")
+        return False
     except Exception as e:
-        print(f"[!] Error: {e}")
+        print(f"[!] Error during {description}: {e}")
         return False
 
 
@@ -71,10 +74,14 @@ def main():
     # Step 2: Run tests
     if not args.skip_tests:
         print("\n[2/6] Running tests...")
-        if not run_command("python -m pytest tests/ -v", "Tests", check=False):
+        # Use -p no:cacheprovider to avoid multiprocessing issues
+        if not run_command(
+            'python -m pytest tests/ -v -p no:cacheprovider',
+            "Running tests",
+            timeout=300
+        ):
             print("[!] Tests failed")
             sys.exit(1)
-        print("[OK] All tests passed")
     else:
         print("\n[2/6] Skipping tests (--skip-tests)")
 
@@ -84,11 +91,10 @@ def main():
     if not run_command(
         "python -m pip install --upgrade build twine",
         "Installing build tools",
-        check=False
+        timeout=300
     ):
         print("[!] Error installing build tools")
         sys.exit(1)
-    print("[OK] Build tools ready")
 
     # Step 4: Clean previous build artifacts
     step = 4 if not args.skip_tests else 3
@@ -103,18 +109,16 @@ def main():
     # Step 5: Build source distribution and wheel
     step = 5 if not args.skip_tests else 4
     print(f"\n[{step}/6] Building source distribution and wheel...")
-    if not run_command("python -m build", "Building", check=False):
+    if not run_command("python -m build", "Building package", timeout=600):
         print("[!] Build failed")
         sys.exit(1)
-    print("[OK] Build completed successfully")
 
     # Step 6: Validate with twine
     step = 6 if not args.skip_tests else 5
     print(f"\n[{step}/6] Validating artifacts with twine...")
-    if not run_command("python -m twine check dist/*", "Twine validation", check=False):
+    if not run_command("python -m twine check dist/*", "Validating with twine", timeout=60):
         print("[!] Twine validation failed")
         sys.exit(1)
-    print("[OK] All artifacts validated")
 
     # Success summary
     print("\n" + "=" * 60)
