@@ -35,26 +35,15 @@ import isogen
 protein = isogen.isodist("ACDEFGHIK", type="PEPTIDE", isolen=64)
 rna = isogen.isodist("AUGCAGUACGUA", type="RNA", isolen=64)
 dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
-```
-
-Elemental formulas can be passed directly to the FFT wrapper:
-
-```python
-from isogen import isogenwrapper
-
-glucose = isogenwrapper.fft_gen_atom_isodist("C6H12O6", isolen=32)
-counts = isogenwrapper.atom_formula_to_vector("C6H12O6")
-
-# Public two-column mass/intensity output:
 glucose_mass_dist = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
 ```
 
-The distribution is a base-peak-normalized intensity vector. The count vector
-has 109 entries indexed by atomic number minus one (H is index 0, C is index
-5, and O is index 7). The native-style `fft_atom_formula_to_dist` and
-`isogen_atom` names are also available as aliases. Formula inputs can
-alternatively be dispatched with
-`isogenwrapper.fft_gen_isodist("C6H12O6", type="FORMULA")`.
+The output is a numpy array of shape `(isolen, 2)` with the first column containing the monoisotopic mass and the second column containing the relative intensity. The `isolen` parameter controls the number of isotopic peaks returned.
+
+In addition to FFT methods, IsoGen provides neural-network models for peptides and RNA. The default is to use the exact "FFT" model with averagines to calculate the isotope distribution from an average protein, RNA, or DNA mass. Turning on "NN" mode uses the neural-network model to predict the isotope distribution from a peptide or RNA sequence. 
+
+The `PEPTIDE` model is trained on peptide sequences, while the `RNA` model is trained on RNA sequences. The `DNA` type uses the RNA model, and
+
 The public `ATOM` type uses the FFT method; no neural-network formula model is
 available.
 
