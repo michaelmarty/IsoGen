@@ -15,7 +15,7 @@ The NN methods are very accurate and can be faster on smaller species. The prima
 Install a published wheel from PyPI:
 
 ```shell
-python -m pip install isogen
+python -m pip install pyisogen
 ```
 
 IsoGen requires Python 3.13 or newer.

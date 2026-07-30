@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-Build script for IsoGen - automates pre-release build steps.
+Build script for pyisogen - automates pre-release build steps.
 Runs up to (but not including) the wheel testing step.
 
 Usage:
-    python build.py              Run the full build process
-    python build.py --help       Show this help message
+    python release.py              Run the full build process
+    python release.py --help       Show this help message
 """
 
 import argparse
@@ -36,7 +36,7 @@ def run_command(cmd, description, timeout=300):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="IsoGen build script - automates pre-release build steps"
+        description="pyisogen build script - automates pre-release build steps"
     )
     parser.add_argument(
         "--skip-tests",
@@ -128,7 +128,7 @@ def main():
     print("\nNext steps:")
     print("  1. Test the wheel in a clean virtual environment:")
     print("     python -m venv wheel-test")
-    print("     ./wheel-test/bin/python -m pip install dist/isogen-*.whl")
+    print("     ./wheel-test/bin/python -m pip install dist/pyisogen-*.whl")
     print("     ./wheel-test/bin/python -c 'import isogen; print(isogen.isodist(1000, isolen=8))'")
     print("")
     print("  2. Upload to TestPyPI (first time) or PyPI:")

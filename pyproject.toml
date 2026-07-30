@@ -6,7 +6,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "isogen"
+name = "pyisogen"
 dynamic = ["version"]
 description = "Fast isotope-distribution calculations for proteins, nucleic acids, and elemental formulas"
 readme = "README.md"
