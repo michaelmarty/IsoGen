@@ -18,12 +18,44 @@ permissions:
   contents: read
 
 jobs:
-  wheels:
-    name: Build wheel on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest]
+  wheels-windows:
+    name: Build Windows wheel
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade build
+
+      - name: Clean previous build output
+        run: python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('build', 'dist', 'wheelhouse')]"
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Test Windows wheel
+        shell: pwsh
+        run: |
+          python -m venv wheel-test
+          $wheel = (Get-ChildItem dist/*.whl).FullName
+          wheel-test/Scripts/python -m pip install $wheel
+          wheel-test/Scripts/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
+          wheel-test/Scripts/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-Windows
+          path: dist/*.whl
+          if-no-files-found: error
+
+  wheels-linux:
+    name: Build Linux wheel
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
@@ -39,14 +71,12 @@ jobs:
         run: python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('build', 'dist', 'wheelhouse')]"
 
       - name: Install Linux native dependency
-        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libfftw3-double3
 
       - name: Build wheel
         run: python -m build --wheel
 
-      - name: Repair Linux wheel
-        if: runner.os == 'Linux'
+      - name: Repair Linux wheel with auditwheel
         shell: bash
         run: |
           python -m pip install auditwheel patchelf
@@ -55,18 +85,7 @@ jobs:
           rm dist/*.whl
           mv wheelhouse/*.whl dist/
 
-      - name: Test Windows wheel
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          python -m venv wheel-test
-          $wheel = (Get-ChildItem dist/*.whl).FullName
-          wheel-test/Scripts/python -m pip install $wheel
-          wheel-test/Scripts/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
-          wheel-test/Scripts/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
-
       - name: Test Linux wheel
-        if: runner.os == 'Linux'
         shell: bash
         run: |
           python -m venv wheel-test
@@ -76,7 +95,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: wheel-${{ runner.os }}
+          name: wheel-Linux
           path: dist/*.whl
           if-no-files-found: error
 
@@ -106,7 +125,7 @@ jobs:
   publish:
     name: Publish to PyPI
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to_pypi == 'true')
-    needs: [wheels, sdist]
+    needs: [wheels-windows, wheels-linux, sdist]
     runs-on: ubuntu-latest
     environment:
       name: pypi
