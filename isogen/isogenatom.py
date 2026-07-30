@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from unidec.IsoDec.IsoGen.isogen_base import *
-from unidec.IsoDec.IsoGen.isogen_tools import *
-from unidec.modules.isotopetools import isolength
-
+from isogen_base import *
+from isogen_tools import *
 
 
 class IsoGenAtomEngine(IsoGenEngineBase):
@@ -21,15 +19,11 @@ class IsoGenAtomEngine(IsoGenEngineBase):
         return self.model.predict(vec)
 
 
-
-
-
 if __name__ == "__main__":
     # seq = "C2H5O"
     # vec = formula_to_vector(seq)
 
-
-    isolens = [8,16]
+    isolens = [8, 16]
     for isolen in isolens:
         os.chdir("Z:\\Group Share\\JGP\\PubChem")
         isolen = 32
@@ -40,7 +34,7 @@ if __name__ == "__main__":
 
         trainfile_synethetic = "isodists_synthetic_1308425.npz"
         trainfile1 = "isodists_synthetic_random_100000.npz"
-        #trainfile2 = "isodists_synthetic_random_1000000.npz"
+        # trainfile2 = "isodists_synthetic_random_1000000.npz"
 
         eng = IsoGenAtomEngine(isolen=isolen)
         eng.train_multiple([trainfile, trainfile_synethetic], epochs=20, forcenew=True, inputname="formulas")

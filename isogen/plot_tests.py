@@ -9,7 +9,13 @@ test_rna_seq = "AUGCAGUACGUA"
 
 
 def stick_plot(ax, distribution, title):
-    """Plot a two-column mass/intensity distribution as sticks."""
+    """Draw a mass/intensity array as a stick plot.
+
+    Args:
+        ax: Matplotlib axes on which to draw.
+        distribution: Two-column mass/intensity NumPy array.
+        title: Axes title.
+    """
     ax.stem(
         distribution[:, 0],
         distribution[:, 1],
@@ -25,7 +31,15 @@ def stick_plot(ax, distribution, title):
 
 
 def plot_isodist_examples(isolen=64, method="FFT"):
-    """Plot protein and RNA isotope distributions from mass and sequence inputs."""
+    """Create protein and RNA mass/sequence example plots.
+
+    Args:
+        isolen: Number of isotope positions in each subplot.
+        method: Distribution engine, either ``FFT`` or ``NN``.
+
+    Returns:
+        ``(figure, axes)`` from a 2-by-2 Matplotlib subplot layout.
+    """
     examples = [
         ("Protein — mass input", test_mass, "PEPTIDE"),
         ("Protein — sequence input", test_pep_seq, "PEPTIDE"),

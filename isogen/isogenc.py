@@ -245,8 +245,6 @@ if __name__ == "__main__":
         fft_seq_dist = fft_rna_seq_to_dist(seq)
 
 
-        from unidec.modules.isotopetools import isojim
-
         #Do the calculation as done by valkenborg to see if I can match their model
         #Order is C,H,N,O,S,P
         A = np.array([5,5,5,0,0,0])

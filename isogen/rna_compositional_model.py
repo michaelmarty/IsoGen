@@ -1,9 +1,6 @@
-import numpy as np
-import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from unidec.IsoDec.IsoGen.isogen_tools import *
-
+from isogen_tools import *
 
 """
 Uses the compositional model to predict the isotopic distribution of a nucleic acid
@@ -38,9 +35,9 @@ class NucleicAcidCompositionalModelEngine:
 
     def load_and_order_coefs(self, analyte="RNA"):
         if analyte == "RNA":
-            coefs = np.loadtxt("C:\\Python\\UniDec3\\unidec\\IsoDec\\IsoGen\\comp_model_parameters\\rna_polycoefs.txt")
+            coefs = np.loadtxt("\\comp_model_parameters\\rna_polycoefs.txt")
         elif analyte == "DNA":
-            coefs = np.loadtxt("C:\\Python\\UniDec3\\unidec\\IsoDec\\IsoGen\\comp_model_parameters\\dna_polycoefs.txt")
+            coefs = np.loadtxt("\\comp_model_parameters\\dna_polycoefs.txt")
 
         ordered_coefs = [[0 for _ in range(20)] for _ in range(11)]
 

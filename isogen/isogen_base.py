@@ -1,16 +1,13 @@
 import torch
 import numpy as np
 import os
-import platform
 from torch import nn
-from torch.optim import lr_scheduler
-import inspect
 from torch.utils.data import DataLoader
-import time
-
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
 
 # Function to save the model to a binary format that can be read into C
 def save_model_to_binary(model, outfile):
@@ -54,20 +51,15 @@ class IsoGenModelBase:
 
     def __init__(self, working_dir=None, isolen=128, vectorlen=20, savename="isogenpep_model_", modelid=0):
         """
-        Initialize the model. Set the working directory
-        :param working_dir:
+        Initialize the model and its artifact directory.
+
+        :param working_dir: Optional model directory. When omitted, models are
+            loaded from and saved to the package's ``models`` subdirectory.
         """
         if working_dir is None:
-            if platform.system() == "Linux":
-                # working_dir = "/xdisk/mtmarty/mtmarty/training/"
-                filename = inspect.getframeinfo(inspect.currentframe()).filename
-                working_dir = os.path.dirname(os.path.abspath(filename))
-            else:
-                # working_dir = "C:\\Data\\IsoNN\\"
-                filename = inspect.getframeinfo(inspect.currentframe()).filename
-                working_dir = os.path.dirname(os.path.abspath(filename))
+            working_dir = MODEL_DIR
 
-        self.working_dir = working_dir
+        self.working_dir = os.path.abspath(os.fspath(working_dir))
 
         self.device = None
         self.model = None
@@ -174,6 +166,7 @@ class IsoGenModelBase:
         """
         if self.model is None:
             self.setup_model()
+        os.makedirs(self.working_dir, exist_ok=True)
         torch.save(self.model.state_dict(), self.savepath)
         save_model_to_binary(self.model, self.savepath.replace(".pth", ".bin"))
         print("Model saved:", self.savepath, self.savepath.replace(".pth", ".bin"))
@@ -464,10 +457,20 @@ class IsoGenEngineBase:
 
 if __name__ == "__main__":
     model = IsoGenNeuralNetwork(isolen=8, vectorlen=4)
-    model.load_state_dict(torch.load("isogenrna_model_8.pth", map_location='cpu'))
-    save_model_to_binary(model, "isogenrna_model_8.bin")
+    model.load_state_dict(
+        torch.load(
+            os.path.join(MODEL_DIR, "isogenrna_model_8.pth"),
+            map_location="cpu",
+        )
+    )
+    save_model_to_binary(
+        model,
+        os.path.join(MODEL_DIR, "isogenrna_model_8.bin"),
+    )
 
 
     # model = IsoGenNeuralNetwork(isolen=8, vectorlen=5)
-    # model.load_state_dict(torch.load("isogenmass_model_8.pth", map_location='cpu'))
-    # save_model_to_binary(model, "isogenmass_model_8.bin")
+    # model.load_state_dict(
+    #     torch.load(os.path.join(MODEL_DIR, "isogenmass_model_8.pth"), map_location="cpu")
+    # )
+    # save_model_to_binary(model, os.path.join(MODEL_DIR, "isogenmass_model_8.bin"))

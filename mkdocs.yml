@@ -1,0 +1,23 @@
+site_name: IsoGen
+site_description: Fast isotope-distribution calculations for proteins and nucleic acids
+site_url: https://michaelmarty.github.io/IsoGen/
+repo_url: https://github.com/michaelmarty/IsoGen
+repo_name: michaelmarty/IsoGen
+
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Isotope distributions: isotope-distributions.md
+  - Mass calculations: mass-calculations.md
+  - API reference: api.md
+  - Command line: command-line.md
+  - Development and testing: development.md
+
+markdown_extensions:
+  - admonition
+  - tables
+
+strict: true

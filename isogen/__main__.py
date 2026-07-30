@@ -9,7 +9,14 @@ from .isogen import isodist
 
 
 def parse_input(value):
-    """Return numeric mass inputs as floats and leave sequences as strings."""
+    """Parse a CLI input as a numeric mass when possible.
+
+    Args:
+        value: Positional command-line input.
+
+    Returns:
+        A float for numeric text, otherwise the original sequence string.
+    """
     try:
         return float(value)
     except ValueError:
@@ -17,6 +24,7 @@ def parse_input(value):
 
 
 def build_parser():
+    """Construct the top-level IsoGen command-line argument parser."""
     parser = argparse.ArgumentParser(
         prog="python -m isogen",
         description="Generate and plot protein, RNA, or DNA isotope distributions.",
@@ -98,6 +106,14 @@ def build_parser():
 
 
 def run_distribution(args):
+    """Generate a distribution and write it as two-column CSV.
+
+    Args:
+        args: Parsed ``dist`` subcommand arguments.
+
+    Returns:
+        Zero on success.
+    """
     if args.isolen < 0:
         raise ValueError("--isolen cannot be negative")
 
@@ -119,6 +135,14 @@ def run_distribution(args):
 
 
 def run_plots(args):
+    """Render, optionally save, and optionally display example stick plots.
+
+    Args:
+        args: Parsed ``plot`` subcommand arguments.
+
+    Returns:
+        Zero on success.
+    """
     if args.isolen < 0:
         raise ValueError("--isolen cannot be negative")
     if args.dpi <= 0:
@@ -138,6 +162,14 @@ def run_plots(args):
 
 
 def main(argv=None):
+    """Run the IsoGen command-line interface.
+
+    Args:
+        argv: Optional argument list. ``None`` reads from ``sys.argv``.
+
+    Returns:
+        Process-style integer exit status.
+    """
     parser = build_parser()
     args = parser.parse_args(argv)
     if not hasattr(args, "handler"):

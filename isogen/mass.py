@@ -66,6 +66,11 @@ pep_ion_mass_shifts_monoisotopic = {
 
 
 def get_aa_mass(letter):
+    """Return the average residue mass for a one-letter amino-acid code.
+
+    Whitespace and unknown codes contribute zero mass; unknown codes are also
+    reported to standard output.
+    """
     if letter == " " or letter == "\t" or letter == "\n":
         return 0
 
@@ -77,6 +82,10 @@ def get_aa_mass(letter):
 
 
 def get_rna_mass(letter):
+    """Return the average RNA residue mass for a nucleotide code.
+
+    ``T`` is accepted as uracil. Unknown codes contribute zero mass.
+    """
     if letter == "T":
         print("Assuming T means U")
 
@@ -88,6 +97,10 @@ def get_rna_mass(letter):
 
 
 def get_dna_mass(letter):
+    """Return the average DNA residue mass for a nucleotide code.
+
+    ``U`` is accepted as thymine. Unknown codes contribute zero mass.
+    """
     try:
         return dna_masses[letter]
     except Exception as exception:
@@ -96,6 +109,7 @@ def get_dna_mass(letter):
 
 
 def _get_monoisotopic_mass(letter, masses, molecule_name):
+    """Look up a monoisotopic residue mass with shared error handling."""
     if letter == " " or letter == "\t" or letter == "\n":
         return 0
 
@@ -107,26 +121,40 @@ def _get_monoisotopic_mass(letter, masses, molecule_name):
 
 
 def get_aa_monoisotopic_mass(letter):
+    """Return the monoisotopic residue mass for an amino-acid code."""
     return _get_monoisotopic_mass(letter, aa_masses_monoisotopic, "Amino Acid")
 
 
 def get_rna_monoisotopic_mass(letter):
+    """Return an RNA residue's monoisotopic mass, treating ``T`` as ``U``."""
     if letter == "T":
         print("Assuming T means U")
     return _get_monoisotopic_mass(letter, rna_masses_monoisotopic, "RNA")
 
 
 def get_dna_monoisotopic_mass(letter):
+    """Return a DNA residue's monoisotopic mass, treating ``U`` as ``T``."""
     return _get_monoisotopic_mass(letter, dna_masses_monoisotopic, "DNA")
 
 
 def get_pep_ion_mass_shift(ion_type="H2O", monoisotopic=False):
-    """
-    Return the neutral terminal-group mass shift for a protein or fragment.
+    """Return the neutral terminal-group mass shift for a protein fragment.
 
     ``H2O`` represents an intact protein. The supplied sequence should be the
     N-terminal fragment for a/b/c ions or the C-terminal fragment for x/y/z
     ions.
+
+    Args:
+        ion_type: ``H2O`` for an intact protein, or ``a``, ``b``, ``c``,
+            ``x``, ``y``, or ``z`` for a fragment ion.
+        monoisotopic: Use monoisotopic rather than average atomic masses.
+
+    Returns:
+        Signed terminal-group mass shift in daltons.
+
+    Raises:
+        TypeError: If ``ion_type`` is not a string.
+        ValueError: If the ion type is unsupported.
     """
     if not isinstance(ion_type, str):
         raise TypeError("ion_type must be a string")
@@ -142,7 +170,22 @@ def get_pep_ion_mass_shift(ion_type="H2O", monoisotopic=False):
 
 def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False, pyroglu=False, round_to=2,
                   ion_type="H2O"):
-    """Calculate average protein mass with intact or fragment-ion termini."""
+    """Calculate an average protein or protein-fragment mass.
+
+    Args:
+        sequence: Amino-acid sequence or an existing numeric mass.
+        allow_float: Interpret numeric input as an already calculated mass.
+        remove_nan: Return zero for the string ``"nan"``.
+        all_cyst_ox: Remove one hydrogen mass per cysteine.
+        pyroglu: Apply an N-terminal pyroglutamate loss for glutamate or
+            glutamine.
+        round_to: Number of decimal places in the returned value.
+        ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z for a supplied
+            N- or C-terminal fragment sequence.
+
+    Returns:
+        Average neutral mass in daltons.
+    """
     is_sequence = isinstance(sequence, str)
     if all_cyst_ox and is_sequence:
         # Count number of c in sequence
@@ -180,7 +223,21 @@ def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False
 
 def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False, pyroglu=False,
                                ion_type="H2O"):
-    """Calculate monoisotopic protein mass with intact or fragment-ion termini."""
+    """Calculate a monoisotopic protein or protein-fragment mass.
+
+    Args:
+        sequence: Amino-acid sequence or an existing numeric mass.
+        allow_float: Interpret numeric input as an already calculated mass.
+        remove_nan: Return zero for the string ``"nan"``.
+        all_cyst_ox: Remove one monoisotopic hydrogen mass per cysteine.
+        pyroglu: Apply an N-terminal pyroglutamate loss for glutamate or
+            glutamine.
+        ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z for a supplied
+            N- or C-terminal fragment sequence.
+
+    Returns:
+        Monoisotopic neutral mass in daltons.
+    """
     is_sequence = isinstance(sequence, str)
     if remove_nan and is_sequence and sequence.lower() == "nan":
         return 0.0
@@ -211,6 +268,17 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
 
 
 def calc_rna_mass(sequence, threeend="OH", fiveend="MP"):
+    """Calculate the average neutral mass of an RNA sequence.
+
+    Args:
+        sequence: RNA sequence; ``T`` is treated as ``U``.
+        threeend: Three-prime terminus, currently ``OH`` or no adjustment.
+        fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
+            triphosphate (``TP``).
+
+    Returns:
+        Average neutral mass in daltons.
+    """
     seq = sequence.upper()
     mass = np.sum([get_rna_mass(s) for s in seq])
     if threeend == "OH":
@@ -228,7 +296,17 @@ def calc_rna_mass(sequence, threeend="OH", fiveend="MP"):
 
 
 def calc_rna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
-    """Calculate the neutral monoisotopic mass of an RNA sequence."""
+    """Calculate the monoisotopic neutral mass of an RNA sequence.
+
+    Args:
+        sequence: RNA sequence; ``T`` is treated as ``U``.
+        threeend: Three-prime terminus, currently ``OH`` or no adjustment.
+        fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
+            triphosphate (``TP``).
+
+    Returns:
+        Monoisotopic neutral mass in daltons.
+    """
     seq = sequence.upper()
     mass = np.sum([get_rna_monoisotopic_mass(s) for s in seq])
     if threeend == "OH":
@@ -246,6 +324,17 @@ def calc_rna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
 
 
 def calc_dna_mass(sequence, threeend="OH", fiveend="MP"):
+    """Calculate the average neutral mass of a DNA sequence.
+
+    Args:
+        sequence: DNA sequence; ``U`` is treated as ``T``.
+        threeend: Three-prime terminus, currently ``OH`` or no adjustment.
+        fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
+            triphosphate (``TP``).
+
+    Returns:
+        Average neutral mass in daltons.
+    """
     seq = sequence.upper()
     mass = np.sum([get_dna_mass(s) for s in seq])
     if threeend == "OH":
@@ -263,7 +352,17 @@ def calc_dna_mass(sequence, threeend="OH", fiveend="MP"):
 
 
 def calc_dna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
-    """Calculate the neutral monoisotopic mass of a DNA sequence."""
+    """Calculate the monoisotopic neutral mass of a DNA sequence.
+
+    Args:
+        sequence: DNA sequence; ``U`` is treated as ``T``.
+        threeend: Three-prime terminus, currently ``OH`` or no adjustment.
+        fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
+            triphosphate (``TP``).
+
+    Returns:
+        Monoisotopic neutral mass in daltons.
+    """
     seq = sequence.upper()
     mass = np.sum([get_dna_monoisotopic_mass(s) for s in seq])
     if threeend == "OH":
@@ -281,7 +380,20 @@ def calc_dna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
 
 
 def calc_mass_axis(monoisotopic_mass, isolen=128, isotope_spacing=1.0033):
-    """Create a mass axis containing exactly ``isolen`` values."""
+    """Create an evenly spaced mass axis.
+
+    Args:
+        monoisotopic_mass: First mass-axis value.
+        isolen: Number of values to generate.
+        isotope_spacing: Mass difference between adjacent isotope positions.
+
+    Returns:
+        A one-dimensional float NumPy array.
+
+    Raises:
+        TypeError: If ``isolen`` is not an integer.
+        ValueError: If ``isolen`` is negative.
+    """
     if not isinstance(isolen, (int, np.integer)):
         raise TypeError("isolen must be an integer")
     if isolen < 0:
@@ -291,25 +403,74 @@ def calc_mass_axis(monoisotopic_mass, isolen=128, isotope_spacing=1.0033):
 
 
 def calc_pep_mass_axis(sequence, isolen=128, isotope_spacing=1.0033, ion_type="H2O", **mass_kwargs):
-    """Create a fixed-length peptide mass axis."""
+    """Create a protein or fragment mass axis from its sequence.
+
+    Args:
+        sequence: Protein or fragment sequence.
+        isolen: Number of values to generate.
+        isotope_spacing: Difference between adjacent isotope masses.
+        ion_type: Intact or fragment-ion terminal composition.
+        **mass_kwargs: Additional options for
+            :func:`calc_pep_monoisotopic_mass`.
+
+    Returns:
+        A one-dimensional float NumPy array.
+    """
     monoisotopic_mass = calc_pep_monoisotopic_mass(sequence, ion_type=ion_type, **mass_kwargs)
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 
 def calc_rna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="OH", fiveend="MP"):
-    """Create a fixed-length RNA mass axis."""
+    """Create an RNA mass axis from a sequence and terminal chemistry.
+
+    Args:
+        sequence: RNA sequence.
+        isolen: Number of values to generate.
+        isotope_spacing: Difference between adjacent isotope masses.
+        threeend: Three-prime terminal chemistry.
+        fiveend: Five-prime terminal chemistry.
+
+    Returns:
+        A one-dimensional float NumPy array beginning at the RNA
+        monoisotopic mass.
+    """
     monoisotopic_mass = calc_rna_monoisotopic_mass(sequence, threeend=threeend, fiveend=fiveend)
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 
 def calc_dna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="OH", fiveend="MP"):
-    """Create a fixed-length DNA mass axis."""
+    """Create a DNA mass axis from a sequence and terminal chemistry.
+
+    Args:
+        sequence: DNA sequence.
+        isolen: Number of values to generate.
+        isotope_spacing: Difference between adjacent isotope masses.
+        threeend: Three-prime terminal chemistry.
+        fiveend: Five-prime terminal chemistry.
+
+    Returns:
+        A one-dimensional float NumPy array beginning at the DNA
+        monoisotopic mass.
+    """
     monoisotopic_mass = calc_dna_monoisotopic_mass(sequence, threeend=threeend, fiveend=fiveend)
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 
 def gen_mass_axis(input, type="PEPTIDE", isolen=128, isotope_spacing=None, **mass_kwargs):
-    """Create a fixed-length mass axis for a peptide, RNA, or DNA sequence."""
+    """Create a mass axis from a numeric mass or biopolymer sequence.
+
+    Args:
+        input: Numeric monoisotopic mass or sequence string.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Number of values to generate.
+        isotope_spacing: Optional spacing override. Defaults to 1.0033 Da for
+            proteins and 1.0027 Da for nucleic acids.
+        **mass_kwargs: Sequence mass options such as ``ion_type``,
+            ``threeend``, or ``fiveend``.
+
+    Returns:
+        A one-dimensional float NumPy array.
+    """
     if not isinstance(input, str):
         if isotope_spacing is None:
             isotope_spacing = 1.0027 if type in ("RNA", "DNA") else 1.0033
@@ -332,6 +493,15 @@ def gen_mass_axis(input, type="PEPTIDE", isolen=128, isotope_spacing=None, **mas
 
 
 def read_fasta(path):
+    """Read a FASTA file into a mapping of identifiers to sequences.
+
+    Args:
+        path: Path to a FASTA-formatted text file.
+
+    Returns:
+        A dictionary mapping the first token of each header to its concatenated
+        sequence.
+    """
     f = open(path, 'r')
     lines = f.readlines()
 

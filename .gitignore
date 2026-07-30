@@ -5,6 +5,7 @@
 /src/cmake-build-release-wsl/
 /build/
 /dist/
+/site/
 /*.egg-info/
 /isogen/__pycache__/
 *.py[cod]

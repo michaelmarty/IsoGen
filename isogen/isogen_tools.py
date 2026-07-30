@@ -1,13 +1,15 @@
 import molmass
-import pyteomics.mass as ms
 import numpy as np
 from collections import Counter
 import molmass as mm
-from unidec.modules.isotopetools import isojim
-from numpy import fft as fftpack
 import re
 
-from unidec.modules.isotopetools import isojim_rna
+if __package__:
+    from .isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist
+    from .mass import calc_pep_monoisotopic_mass
+else:
+    from isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist
+    from mass import calc_pep_monoisotopic_mass
 
 elements = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt']
 edict = {}
@@ -18,7 +20,7 @@ aas = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R'
 
 '''
 The format of this is a dictionary of elemental compositions of the 20 common amino acids.
-The order of the compositions by element is C, H, N, O, S (as is taken by isojim)
+The order of the compositions by element is C, H, N, O, S.
 '''
 aa_elementalcomp_dict = {
     "A": np.array([3,5,1,1,0]),
@@ -137,10 +139,8 @@ def rna_makemass(mass):
 
 
 def pepmass_to_dist(mass, isolen=128):
-    _, minmassint, isolist = pep_makemass(mass)
-    intensities = isojim(isolist, length=isolen)
-    #intensities /= np.sum(intensities)
-    return intensities
+    """Generate an FFT peptide distribution from a neutral mass."""
+    return fft_gen_isodist(mass, type="PEPTIDE", isolen=isolen)
 
 
 def mass_to_vector(x):
@@ -175,56 +175,46 @@ def parse_chemical_formula(formula):
 
 # Calculate the isotopic distribution of the peptide
 def peptide_to_dist(peptide, isolen=128):
-    try:
-        isolist = np.array([0,2,0,1,0,0,0,0,0,0,0])
+    """Generate an FFT peptide distribution from a sequence.
 
+    Bracketed elemental modifications are converted to a total mass before
+    dispatch because the native sequence interface accepts residue codes only.
+    """
+    try:
         mod_matches = re.findall(fullseq_pattern, peptide)
         if len(mod_matches) > 0:
-            mod_matches = [match.strip('[]') for match in mod_matches]
-            mod_chemical_formula = {}
-            for mod in mod_matches:
-                current_mod = parse_chemical_formula(mod)
-                for element in current_mod:
-                    if element not in mod_chemical_formula:
-                        mod_chemical_formula[element] = current_mod[element]
-                    else:
-                        mod_chemical_formula[element] += current_mod[element]
+            peptide_mass = peptide_to_mass(peptide)
+            if peptide_mass is None:
+                return None
+            return fft_gen_isodist(
+                peptide_mass,
+                type="PEPTIDE",
+                isolen=isolen,
+            )
 
-            isolist[0] += mod_chemical_formula.get("C", 0)
-            isolist[1] += mod_chemical_formula.get("H", 0)
-            isolist[2] += mod_chemical_formula.get("N", 0)
-            isolist[3] += mod_chemical_formula.get("O", 0)
-            isolist[4] += mod_chemical_formula.get("S", 0)
-            isolist[5] += mod_chemical_formula.get("Fe", 0)
-            isolist[6] += mod_chemical_formula.get("K", 0)
-            isolist[7] += mod_chemical_formula.get("Ca", 0)
-            isolist[8] += mod_chemical_formula.get("Ni", 0)
-            isolist[9] += mod_chemical_formula.get("Zn", 0)
-            isolist[10] += mod_chemical_formula.get("Mg", 0)
-
-            peptide = re.sub(fullseq_pattern, '', peptide)
-
-        for aa in peptide:
-            if aa not in aa_elementalcomp_dict:
-                print(aa)
-                raise ValueError("Unknown amino acid found in peptide")
-            isolist += aa_elementalcomp_dict[aa]
-
-        dist = isojim(isolist, isolen)
-    except Exception as e:
+        return fft_gen_seq_isodist(
+            peptide,
+            type="PEPTIDE",
+            isolen=isolen,
+        )
+    except Exception:
         dist = None
     return dist
 
 
 def peptide_to_mass(peptide):
+    """Calculate a modified peptide's neutral monoisotopic mass.
+
+    Bracketed strings are interpreted as elemental formulas and added to the
+    intact peptide mass.
+    """
     try:
         mod_matches = re.findall(fullseq_pattern, peptide)
         mod_mass = 0
         for mod in mod_matches:
-            mod_mass = ms.Composition(mod.strip('[]')).mass() + mod_mass
+            mod_mass += mm.Formula(mod.strip("[]")).monoisotopic_mass
         peptide = re.sub(fullseq_pattern, '', peptide)
-        formula = ms.Composition(peptide)
-        mass = formula.mass()
+        mass = calc_pep_monoisotopic_mass(peptide)
     except Exception:
         return None
     return mass + mod_mass
@@ -339,9 +329,8 @@ def formula_to_vector(formula):
 
 # RNA Sequence to Dist
 def rnaseq_to_dist(rnaseq, isolen=128):
-    isolist = rnaseq_to_isolist(rnaseq)
-    dist = isojim(isolist, isolen)
-    return dist
+    """Generate an FFT RNA distribution from a nucleotide sequence."""
+    return fft_gen_seq_isodist(rnaseq, type="RNA", isolen=isolen)
 
 # DNA Sequence to Dist
 def dnaseq_to_dist(dnaseq, isolen=128, cutoff=0.001):
@@ -372,9 +361,8 @@ def dnaseq_to_vector(dnaseq):
 
 # RNA mass to dist
 def rnamass_to_dist(mass, isolen=128):
-    isolist = rna_makemass(mass)
-    dist = isojim(isolist, isolen)
-    return dist
+    """Generate an FFT RNA distribution from a neutral mass."""
+    return fft_gen_isodist(mass, type="RNA", isolen=isolen)
 
 
 def rnamass_to_isolen(mass):

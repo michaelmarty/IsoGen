@@ -1,14 +1,27 @@
-from unidec.IsoDec.IsoGen.isogen_base import *
-from unidec.IsoDec.IsoGen.isogenc import fft_rna_mass_to_dist
-from unidec.IsoDec.IsoGen.rna_compositional_model import *
-import matplotlib.pyplot as plt
-import multiprocessing
-from unidec.modules.isotopetools import isojim_rna
-import time
-from Scripts.JGP.IsoGen_Analysis.distribution_assessment import *
+import numpy as np
 
-def process_sequence(formula_isolen_tuple, length):
-    return isojim_rna(formula_isolen_tuple[0], length=formula_isolen_tuple[1])
+if __package__:
+    from .isogen_base import IsoGenEngineBase, IsoGenModelBase
+    from .isogen_tools import mass_to_vector, rna_dict_sep, rnamass_to_isolen
+    from .isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist
+else:
+    from isogen_base import IsoGenEngineBase, IsoGenModelBase
+    from isogen_tools import mass_to_vector, rna_dict_sep, rnamass_to_isolen
+    from isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist
+
+
+def process_sequence(sequence_isolen_tuple, length=None):
+    """Generate an FFT RNA distribution for a ``(sequence, isolen)`` pair.
+
+    ``length`` is retained for compatibility with existing multiprocessing
+    callers; the tuple's isotope length remains authoritative.
+    """
+    sequence, isolen = sequence_isolen_tuple
+    return fft_gen_seq_isodist(
+        sequence,
+        type="RNA",
+        isolen=isolen,
+    )
 
 class IsoGenRNAveragineEngine(IsoGenEngineBase):
     def __init__(self, isolen=64):
@@ -81,8 +94,8 @@ class IsoGenRNAveragineEngine(IsoGenEngineBase):
             return model.predict(vec)
 
 def rna_mass_to_dist(input):
-    dist = fft_rna_mass_to_dist(input[0], input[1])
-    return dist
+    """Generate an FFT RNA distribution for a ``(mass, isolen)`` pair."""
+    return fft_gen_isodist(input[0], type="RNA", isolen=input[1])
 
 def gen_training_data(n, isolen=128, massrange=[100, 1000000]):
     masses = np.random.uniform(massrange[0], massrange[1], n)
@@ -90,7 +103,7 @@ def gen_training_data(n, isolen=128, massrange=[100, 1000000]):
     print("Calculating Isotope Dists...")
     dists = []
     for i in range(len(masses)):
-        dist = fft_rna_mass_to_dist(masses[i], isolen)
+        dist = fft_gen_isodist(masses[i], type="RNA", isolen=isolen)
         dists.append(dist)
     return np.array(masses), np.array(dists)
 
@@ -102,8 +115,9 @@ def rna_seq_to_formula(seq):
     return formula
 
 def mass_to_rnaveragine_dist(mass_len_tuple):
-    dist = fft_rna_mass_to_dist(mass_len_tuple[0], isolen=128)
-    return dist
+    """Generate an RNA averagine FFT distribution for ``(mass, isolen)``."""
+    mass, isolen = mass_len_tuple
+    return fft_gen_isodist(mass, type="RNA", isolen=isolen)
 
 
 

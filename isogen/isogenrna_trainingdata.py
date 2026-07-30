@@ -1,7 +1,7 @@
 import multiprocessing
 import os
 from isogen_tools import *
-from unidec.IsoDec.IsoGen.isogenc import *
+from isogenc import *
 from itertools import combinations_with_replacement
 
 def get_big_seq(seqs):

@@ -1,4 +1,3 @@
-import molmass as mm
 import numpy as np
 import os
 import time

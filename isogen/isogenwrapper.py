@@ -5,6 +5,15 @@ import platform
 
 
 def find_dll(targetfile, dir):
+    """Recursively locate a native library below a directory.
+
+    Args:
+        targetfile: Library filename to find.
+        dir: Directory at which to begin the recursive search.
+
+    Returns:
+        The first matching path, or an empty string when no match is found.
+    """
     if dir is None:
         return ""
 
@@ -21,6 +30,15 @@ def find_dll(targetfile, dir):
     return ""
 
 def start_at_iso(targetfile, guess=None):
+    """Resolve a library from a preferred directory or its system name.
+
+    Args:
+        targetfile: Native library filename.
+        guess: Optional directory to search first.
+
+    Returns:
+        A discovered path, otherwise ``targetfile`` for system lookup.
+    """
     if guess is not None:
         if os.path.isdir(guess):
             result = find_dll(targetfile, guess)
@@ -87,7 +105,19 @@ isogen_c_lib.nn_pep_seq_to_dist.restype = ctypes.c_float
 
 
 def nn_gen_seq_isodist(sequence, type="PEPTIDE", isolen=64, offset=0):
-    """Generate an isotope distribution from a peptide, RNA, or DNA sequence."""
+    """Generate neural-network isotope intensities from a sequence.
+
+    DNA sequences use the RNA model after replacing thymine with uracil.
+
+    Args:
+        sequence: Protein, RNA, or DNA sequence.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown type.
+    """
     if type == "DNA":
         sequence = sequence.upper().replace("T", "U")
     sequence_bytes = sequence.encode("utf-8")
@@ -106,7 +136,19 @@ def nn_gen_seq_isodist(sequence, type="PEPTIDE", isolen=64, offset=0):
 
 
 def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
-    """Generate an isotope distribution from a peptide, RNA, or DNA sequence."""
+    """Generate FFT isotope intensities from a sequence.
+
+    DNA sequences use the RNA model after replacing thymine with uracil.
+
+    Args:
+        sequence: Protein, RNA, or DNA sequence.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown type.
+    """
     if type == "DNA":
         sequence = sequence.upper().replace("T", "U")
     sequence_bytes = sequence.encode("utf-8")
@@ -125,6 +167,17 @@ def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
 
 
 def nn_gen_isodist(input, type="PEPTIDE", isolen=64, offset=0):
+    """Generate neural-network isotope intensities from a mass or sequence.
+
+    Args:
+        input: Numeric neutral mass or sequence string.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown type.
+    """
     if isinstance(input, str):
         return nn_gen_seq_isodist(input, type=type, isolen=isolen, offset=offset)
 
@@ -161,6 +214,17 @@ def nn_gen_isodist(input, type="PEPTIDE", isolen=64, offset=0):
 
 
 def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
+    """Generate FFT isotope intensities from a mass or sequence.
+
+    Args:
+        input: Numeric neutral mass or sequence string.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown type.
+    """
     if isinstance(input, str):
         return fft_gen_seq_isodist(input, type=type, isolen=isolen, offset=offset)
 
@@ -187,6 +251,19 @@ def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
     return np.array(isodist)
 
 def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
+    """Dispatch a mass or sequence to an FFT or neural-network model.
+
+    Args:
+        input: Numeric neutral mass or sequence string.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+        method: ``FFT`` or ``NN``.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown method or
+        analyte type.
+    """
     if method == "FFT":
         return fft_gen_isodist(input, type=type, isolen=isolen, offset=offset)
     elif method == "NN":
@@ -199,7 +276,7 @@ def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
 if __name__ == "__main__":
     import time
     m =100000
-    n=10000
+    n=1000
     starttime = time.perf_counter()
     for i in range(n):
         m2 = m + np.random.uniform(-1000,1000)
@@ -211,36 +288,3 @@ if __name__ == "__main__":
         m2 = m + np.random.uniform(-1000,1000)
         d1 = fft_gen_isodist(m2, type="PEPTIDE", isolen=128)
     print("FFT Time:", (time.perf_counter()-starttime)/n*1e6, "microseconds per call")
-    # d1 = fft_gen_isodist(m, type="PEPTIDE")
-    # print(d1)
-
-    # import matplotlib.pyplot as plt
-    # plt.plot(d1/np.amax(d1), label="Isogen")
-    # plt.legend()
-    # plt.show()
-    exit()
-    #
-    #
-    # eng = IsoGenWrapper(dllpath=dllpath)
-    # n = 10000
-    # random_masses = np.random.uniform(1000, 60000, n)
-    # starttime = time.perf_counter()
-    # for mass in random_masses:
-    #     dist = eng.gen_isodist(mass)
-    #
-    # print("Isogen Time:", time.perf_counter()-starttime)
-    # print("Microseconds Per:", (time.perf_counter()-starttime)/n* 1e6)
-    #
-    # starttime = time.perf_counter()
-    # for mass in random_masses:
-    #     dist = eng.gen_isomike(mass)
-    #
-    # print("Isomike Time:", time.perf_counter()-starttime)
-    # print("Microseconds Per:", (time.perf_counter()-starttime)/n* 1e6)
-    #
-    # starttime = time.perf_counter()
-    # for mass in random_masses:
-    #     dist = eng.gen_isofft(mass)
-    #
-    # print("FFT Time:", time.perf_counter()-starttime)
-    # print("Microseconds Per:", (time.perf_counter()-starttime)/n * 1e6)
