@@ -30,6 +30,9 @@ y6_mass = isogen.calc_pep_monoisotopic_mass("EPTIDE", ion_type="y")
 ```
 
 These are neutral masses. Charge and proton/adduct masses are not applied.
+When used through `isodist`, `ion_type` changes the mass-axis origin. The
+sequence intensity calculation retains its standard intact-sequence terminal
+composition.
 
 ## RNA and DNA termini
 
@@ -56,6 +59,16 @@ triphosphate = isogen.calc_rna_monoisotopic_mass(
     fiveend="TP",
 )
 ```
+
+RNA `a`, `b`, `c`, `d`, `w`, `x`, `y`, and `z` fragment-series names are not
+accepted by `ion_type`; that keyword applies only to peptides. Pass a manually
+truncated RNA sequence and select from the terminal chemistries above, or pass
+a known neutral fragment mass as numeric RNA input. Numeric input uses the RNA
+averagine intensity model.
+
+When `threeend` or `fiveend` is passed through `isodist`, it adjusts the mass
+axis but does not alter the sequence-model intensity vector's terminal
+composition.
 
 ## Standalone mass axes
 

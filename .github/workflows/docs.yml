@@ -30,11 +30,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
+      - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
 
       - name: Install documentation dependencies
         run: python -m pip install ".[docs]"
@@ -42,8 +48,9 @@ jobs:
       - name: Build documentation
         run: python -m mkdocs build --strict
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload GitHub Pages artifact
         if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -58,4 +65,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

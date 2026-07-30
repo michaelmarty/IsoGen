@@ -67,4 +67,11 @@ triphosphate_rna = isogen.isodist(
 ```
 
 For a/b/c ions, pass the N-terminal fragment sequence. For x/y/z ions, pass
-the C-terminal fragment sequence.
+the C-terminal fragment sequence. `ion_type` applies only to peptides; named
+RNA fragment-ion series are not currently implemented. RNA `threeend` and
+`fiveend` values describe supported terminal chemistry for an intact or
+manually truncated sequence.
+
+These keyword arguments modify the monoisotopic mass-axis origin. They do not
+change the terminal composition used by the FFT or NN sequence intensity
+model.

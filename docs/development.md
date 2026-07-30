@@ -38,6 +38,18 @@ Validate the production site:
 python -m mkdocs build --strict
 ```
 
+### Enable GitHub Pages
+
+Before the documentation workflow can deploy for the first time, a repository
+owner must open **Settings → Pages** and set **Build and deployment → Source**
+to **GitHub Actions**. GitHub does not allow the workflow's built-in
+`GITHUB_TOKEN` to enable Pages automatically.
+
+After that one-time setting is saved, pushes to `main` that change the
+documentation or its workflow build and deploy the site automatically. Pull
+requests perform the strict documentation build without attempting a Pages
+deployment.
+
 ## Native libraries
 
 The Python wrapper loads the platform library from the repository-level `bin`
