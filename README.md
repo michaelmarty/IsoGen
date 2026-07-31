@@ -47,6 +47,148 @@ The `PEPTIDE` model is trained on peptide sequences, while the `RNA` model is tr
 The public `ATOM` type uses the FFT method; no neural-network formula model is
 available.
 
+### Custom neural-network models
+
+Use `isodist_custom` to generate a distribution from a binary model file rather
+than one of IsoGen's bundled neural-network models:
+
+```python
+from pathlib import Path
+
+import isogen
+
+model_file = Path("models/my_peptide_model_64.bin")
+custom = isogen.isodist_custom(
+    "ACDEFGHIK",
+    model_file=model_file,
+    isolen=64,
+    type="PEPTIDE",
+)
+```
+
+The function accepts peptide, RNA, and DNA sequences or numeric neutral masses.
+It always uses the neural-network method. The model must have the correct input
+size for the selected input and type, and its output size must equal `isolen`.
+Peptide sequence models have 20 inputs, RNA/DNA sequence models have 4 inputs,
+and neutral-mass models have 5 inputs. Invalid, unreadable, or incompatible
+model files raise `ValueError`. As with `isodist`, the result has shape
+`(isolen, 2)`, containing neutral masses and relative intensities.
+
+#### Training custom models
+
+Install the training dependencies before importing the training modules:
+
+```shell
+python -m pip install -e ".[training]"
+```
+
+Training data is stored in NumPy `.npz` archives. Sequence models expect a
+`seqs` array and mass models expect a `masses` array. Every archive also needs
+a `dists` array with shape `(number_of_examples, isolen)`. Each row of `dists`
+is the target relative-intensity distribution for its corresponding sequence
+or neutral mass. For example:
+
+```python
+import numpy as np
+
+np.savez_compressed(
+    "peptide_training.npz",
+    seqs=np.asarray(["ACDE", "PEPTIDE", "MARTY"]),
+    dists=np.asarray(peptide_target_distributions, dtype=np.float32),
+)
+
+np.savez_compressed(
+    "mass_training.npz",
+    masses=np.asarray([1_000.0, 5_000.0, 10_000.0]),
+    dists=np.asarray(mass_target_distributions, dtype=np.float32),
+)
+```
+
+Use the engine matching the kind of input the model will receive. The helper
+below directs generated models to a separate directory instead of overwriting
+the models installed with IsoGen:
+
+```python
+from pathlib import Path
+
+from isogen.isogenmass import IsoGenMassEngine
+from isogen.isogenpep import IsoGenPepEngine
+from isogen.isogenrna import IsoGenRNAEngine
+from isogen.isogenrna_averagine import IsoGenRNAveragineEngine
+
+
+model_dir = Path("trained_models")
+model_dir.mkdir(exist_ok=True)
+
+
+def set_model_directory(engine):
+    """Set the output directory before a model is initialized or loaded."""
+    engine.model.working_dir = str(model_dir)
+    for model in engine.models:
+        model.working_dir = str(model_dir)
+
+
+# Peptide sequences: 20-element amino-acid composition input.
+pep = IsoGenPepEngine(isolen=64)
+set_model_directory(pep)
+pep.train("peptide_training.npz", epochs=20, forcenew=True)
+
+# RNA sequences: 4-element A/C/G/U composition input. This model is also
+# used for DNA inference after IsoGen converts thymine to uracil.
+rna = IsoGenRNAEngine(isolen=64)
+set_model_directory(rna)
+rna.train("rna_training.npz", epochs=20, forcenew=True)
+
+# Peptide-like neutral masses: 5-element mass encoding.
+mass = IsoGenMassEngine(isolen=64)
+set_model_directory(mass)
+mass.train_multiple(
+    ["mass_training.npz"],
+    inputname="masses",
+    epochs=20,
+    forcenew=True,
+)
+
+# RNA-like neutral masses: 5-element mass encoding.
+rna_mass = IsoGenRNAveragineEngine(isolen=64)
+set_model_directory(rna_mass)
+rna_mass.train_multiple(
+    ["rna_mass_training.npz"],
+    inputname="masses",
+    epochs=20,
+    forcenew=True,
+)
+```
+
+`IsoGenPepEngine` supports output lengths 16, 64, and 128;
+`IsoGenRNAEngine` supports 64 and 128; `IsoGenMassEngine` models intended for
+`isodist_custom` support 8, 32, 64, and 128; and
+`IsoGenRNAveragineEngine` supports 32, 64, and 128. The output length used to
+construct the engine must match the width of `dists` and the `isolen` passed to
+`isodist_custom`.
+
+After training, each engine saves a PyTorch `.pth` checkpoint and a raw `.bin`
+model in `trained_models`. The `.pth` file is used to resume Python training;
+pass the `.bin` file to `isodist_custom`. The generated filenames are
+`isogenpep_model_<isolen>.bin`, `isogenrna_model_<isolen>.bin`,
+`isogenmass_model_<isolen>.bin`, and
+`isogen_rnaveragine_model<isolen>.bin`, respectively:
+
+```python
+custom = isogen.isodist_custom(
+    "ACDEFGHIK",
+    model_file=model_dir / "isogenpep_model_64.bin",
+    isolen=64,
+    type="PEPTIDE",
+)
+```
+
+Passing `forcenew=True` starts from newly initialized weights. Use
+`forcenew=False` to resume from a matching `.pth` checkpoint in the configured
+model directory. `IsoGenMassEngine.train(...)` and
+`IsoGenRNAveragineEngine.train(...)` can also generate standard FFT targets
+from random masses when a custom target archive is not needed.
+
 ### Peptide ions and RNA termini
 
 For peptide fragments, pass the fragment sequence and select its neutral
@@ -136,7 +278,14 @@ If you have any questions, please email mtmarty@utexas.edu or open a ticket on G
 
 ## CHANGELOG
 
+### 1.0.2
+
+Added support for custom models with isogen_custom function and new C bindings for custom models.
+
+### 1.0.1 
+
+Small updates to README.md
+
 ### 1.0.0
 
 Initial release. Rewrote significantly from UniDec build using AI tool to improve the release and add in atomic formula support.
-

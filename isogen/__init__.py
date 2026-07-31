@@ -2,7 +2,7 @@
 
 if __package__:
     from ._version import __version__
-    from .isogen import isodist
+    from .isogen import isodist, isodist_custom
     from .mass import (
        calc_atom_mass_axis,
        calc_atom_monoisotopic_mass,
@@ -20,7 +20,7 @@ if __package__:
     )
 else:
     from _version import __version__
-    from isogen import isodist
+    from isogen import isodist, isodist_custom
     from mass import (
        calc_atom_mass_axis,
        calc_atom_monoisotopic_mass,
@@ -40,6 +40,7 @@ else:
 __all__ = [
     "__version__",
     "isodist",
+    "isodist_custom",
     "calc_atom_mass_axis",
     "calc_atom_monoisotopic_mass",
     "calc_dna_mass",

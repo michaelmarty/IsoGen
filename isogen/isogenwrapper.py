@@ -103,6 +103,42 @@ isogen_c_lib.nn_pep_seq_to_dist.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctyp
                                             ctypes.c_int]
 isogen_c_lib.nn_pep_seq_to_dist.restype = ctypes.c_float
 
+isogen_c_lib.nn_rna_mass_to_dist_custom.argtypes = [
+    ctypes.c_float,
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_char_p,
+]
+isogen_c_lib.nn_rna_mass_to_dist_custom.restype = ctypes.c_float
+
+isogen_c_lib.nn_pep_mass_to_dist_custom.argtypes = [
+    ctypes.c_float,
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_char_p,
+]
+isogen_c_lib.nn_pep_mass_to_dist_custom.restype = ctypes.c_float
+
+isogen_c_lib.nn_rna_seq_to_dist_custom.argtypes = [
+    ctypes.c_char_p,
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_char_p,
+]
+isogen_c_lib.nn_rna_seq_to_dist_custom.restype = ctypes.c_float
+
+isogen_c_lib.nn_pep_seq_to_dist_custom.argtypes = [
+    ctypes.c_char_p,
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.c_int,
+    ctypes.c_int,
+    ctypes.c_char_p,
+]
+isogen_c_lib.nn_pep_seq_to_dist_custom.restype = ctypes.c_float
+
 ATOM_ELEMENT_COUNT = 109
 
 _atom_formula_to_vector_c = getattr(
@@ -143,6 +179,25 @@ def _encode_formula(formula):
     if not isinstance(formula, str):
         raise TypeError("formula must be a string")
     return formula.encode("utf-8")
+
+
+def _encode_model_path(model_path):
+    """Encode a string or path-like model filename for the native API."""
+    if model_path is None:
+        return None
+    try:
+        return os.fsencode(os.fspath(model_path))
+    except TypeError as error:
+        raise TypeError("model_path must be a string or path-like object") from error
+
+
+def _check_custom_model_result(result, model_path):
+    """Raise when the native library could not load a custom model."""
+    if result < 0:
+        raise ValueError(
+            f"Unable to use custom model file {os.fspath(model_path)!r}; "
+            "check that it exists and matches the requested input and output sizes"
+        )
 
 
 def atom_formula_to_vector(formula):
@@ -231,7 +286,9 @@ def isogen_atom(formula, isolen=128):
     return fft_gen_atom_isodist(formula, isolen=isolen, offset=0)
 
 
-def nn_gen_seq_isodist(sequence, type="PEPTIDE", isolen=64, offset=0):
+def nn_gen_seq_isodist(
+    sequence, type="PEPTIDE", isolen=64, offset=0, model_path=None
+):
     """Generate neural-network isotope intensities from a sequence.
 
     DNA sequences use the RNA model after replacing thymine with uracil.
@@ -241,6 +298,8 @@ def nn_gen_seq_isodist(sequence, type="PEPTIDE", isolen=64, offset=0):
         type: ``PEPTIDE``, ``RNA``, or ``DNA``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
+        model_path: Optional string or path-like filename of a custom binary
+            model. The bundled model is used when omitted.
 
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
@@ -248,16 +307,42 @@ def nn_gen_seq_isodist(sequence, type="PEPTIDE", isolen=64, offset=0):
     if type == "DNA":
         sequence = sequence.upper().replace("T", "U")
     sequence_bytes = sequence.encode("utf-8")
+    model_path_bytes = _encode_model_path(model_path)
     isodist = np.zeros(isolen, dtype=np.float32)
     ptr = isodist.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
     if type in ("RNA", "DNA"):
-        isogen_c_lib.nn_rna_seq_to_dist(sequence_bytes, ptr, ctypes.c_int(isolen), ctypes.c_int(offset))
+        if model_path_bytes is None:
+            result = isogen_c_lib.nn_rna_seq_to_dist(
+                sequence_bytes, ptr, ctypes.c_int(isolen), ctypes.c_int(offset)
+            )
+        else:
+            result = isogen_c_lib.nn_rna_seq_to_dist_custom(
+                sequence_bytes,
+                ptr,
+                ctypes.c_int(isolen),
+                ctypes.c_int(offset),
+                model_path_bytes,
+            )
     elif type == "PEPTIDE":
-        isogen_c_lib.nn_pep_seq_to_dist(sequence_bytes, ptr, ctypes.c_int(isolen), ctypes.c_int(offset))
+        if model_path_bytes is None:
+            result = isogen_c_lib.nn_pep_seq_to_dist(
+                sequence_bytes, ptr, ctypes.c_int(isolen), ctypes.c_int(offset)
+            )
+        else:
+            result = isogen_c_lib.nn_pep_seq_to_dist_custom(
+                sequence_bytes,
+                ptr,
+                ctypes.c_int(isolen),
+                ctypes.c_int(offset),
+                model_path_bytes,
+            )
     else:
         print("Unknown type for NN generation:", type)
         return None
+
+    if model_path is not None:
+        _check_custom_model_result(result, model_path)
 
     return isodist
 
@@ -297,7 +382,9 @@ def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
     return isodist
 
 
-def nn_gen_isodist(input, type="PEPTIDE", isolen=64, offset=0):
+def nn_gen_isodist(
+    input, type="PEPTIDE", isolen=64, offset=0, model_path=None
+):
     """Generate neural-network isotope intensities from a mass or sequence.
 
     Args:
@@ -305,39 +392,52 @@ def nn_gen_isodist(input, type="PEPTIDE", isolen=64, offset=0):
         type: ``PEPTIDE``, ``RNA``, or ``DNA``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
+        model_path: Optional string or path-like filename of a custom binary
+            model. The bundled model is used when omitted.
 
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
     """
     if isinstance(input, str):
-        return nn_gen_seq_isodist(input, type=type, isolen=isolen, offset=offset)
+        return nn_gen_seq_isodist(
+            input, type=type, isolen=isolen, offset=offset, model_path=model_path
+        )
 
     # Create empty array
     isodist = np.zeros(isolen).astype(np.float32)
     ptr = isodist.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    res = b""
+    model_path_bytes = _encode_model_path(model_path)
     if type is None:
         print("Unknown type for NN generation:", type)
         return None
     if type in ("RNA", "DNA"):
-        res = b"Rna"
-        # Call the C function
-        isogen_c_lib.nn_rna_mass_to_dist(
-            ctypes.c_float(input),
-            ptr,
-            ctypes.c_int(isolen),
-            ctypes.c_int(offset)
+        function = (
+            isogen_c_lib.nn_rna_mass_to_dist
+            if model_path_bytes is None
+            else isogen_c_lib.nn_rna_mass_to_dist_custom
         )
     elif type == "PEPTIDE":
-        res = b"Peptide"
-        # Call the C function
-        isogen_c_lib.nn_pep_mass_to_dist(
-            ctypes.c_float(input),
-            ptr,
-            ctypes.c_int(isolen),
-            ctypes.c_int(offset)
+        function = (
+            isogen_c_lib.nn_pep_mass_to_dist
+            if model_path_bytes is None
+            else isogen_c_lib.nn_pep_mass_to_dist_custom
         )
+    else:
+        print("Unknown type for NN generation:", type)
+        return None
+
+    arguments = [
+        ctypes.c_float(input),
+        ptr,
+        ctypes.c_int(isolen),
+        ctypes.c_int(offset),
+    ]
+    if model_path_bytes is not None:
+        arguments.append(model_path_bytes)
+    result = function(*arguments)
+    if model_path is not None:
+        _check_custom_model_result(result, model_path)
 
     # Convert isodist to numpy
     isodist = np.ctypeslib.as_array(isodist)
@@ -382,7 +482,14 @@ def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
 
     return np.array(isodist)
 
-def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
+def gen_isodist(
+    input,
+    type="PEPTIDE",
+    isolen=128,
+    offset=0,
+    method="FFT",
+    model_path=None,
+):
     """Dispatch a mass or sequence to an FFT or neural-network model.
 
     Args:
@@ -391,6 +498,7 @@ def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
         method: ``FFT`` or ``NN``.
+        model_path: Optional custom binary model filename for the NN method.
 
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown method or
@@ -400,10 +508,18 @@ def gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, method="FFT"):
     method = method.upper() if isinstance(method, str) else method
     if type in ("ATOM", "FORMULA") and method != "FFT":
         raise ValueError("ATOM inputs support only the FFT method")
+    if model_path is not None and method != "NN":
+        raise ValueError("model_path is supported only by the NN method")
     if method == "FFT":
         return fft_gen_isodist(input, type=type, isolen=isolen, offset=offset)
     elif method == "NN":
-        return nn_gen_isodist(input, type=type, isolen=isolen, offset=offset)
+        return nn_gen_isodist(
+            input,
+            type=type,
+            isolen=isolen,
+            offset=offset,
+            model_path=model_path,
+        )
     else:
         print("Unknown method for generating isotope distribution:", method)
         return None
