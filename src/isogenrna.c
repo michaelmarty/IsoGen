@@ -3,6 +3,7 @@
 #include <string.h>
 #include "fftw3.h"
 #include "isogendep.h"
+#include "isogen_models.h"
 #include "isogen_rnaveragine_model32.h"
 #include "isogen_rnaveragine_model64.h"
 #include "isogen_rnaveragine_model128.h"
@@ -265,6 +266,17 @@ float nn_rna_mass_to_dist(const float mass, float* isodist, const int isolen, co
     return maxval;
 }
 
+float nn_rna_mass_to_dist_custom(const float mass, float* isodist, const int isolen, const int offset,
+                                 const char* model_path) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
+
+    float vector[5] = {0};
+    mass_to_vector(mass, vector);
+    return isogen_model_to_dist_from_file(vector, 5, isodist, isolen, offset, model_path);
+}
+
 
 float nn_rna_seq_to_dist(const char* seq, float* isodist, int isolen, int offset) {
     if (prepare_isodist_output(isodist, isolen, offset) != 0) {
@@ -345,4 +357,15 @@ float nn_rna_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
         }
     }
     return maxval;
+}
+
+float nn_rna_seq_to_dist_custom(const char* seq, float* isodist, const int isolen, const int offset,
+                                const char* model_path) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0 || seq == NULL || seq[0] == '\0') {
+        return -1.0f;
+    }
+
+    float vector[4] = {0};
+    rna_seq_to_vector(seq, vector);
+    return isogen_model_to_dist_from_file(vector, 4, isodist, isolen, offset, model_path);
 }

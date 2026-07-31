@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "isogendep.h"
+#include "isogen_models.h"
 #include "isogenpep.h"
 #include "isogenpep_model_16.h"
 #include "isogenpep_model_64.h"
@@ -270,6 +271,24 @@ float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
             isodist[i] /= maxval;
         }
     }
+    return maxval;
+}
+
+float nn_pep_seq_to_dist_custom(const char* seq, float* isodist, const int isolen, const int offset,
+                                const char* model_path) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0 || seq == NULL || seq[0] == '\0') {
+        return -1.0f;
+    }
+
+    float *vector = (float *)calloc(20, sizeof(*vector));
+    if (vector == NULL) {
+        return -1.0f;
+    }
+    pep_seq_to_nnvector(seq, vector);
+
+    const float maxval = isogen_model_to_dist_from_file(
+        vector, 20, isodist, isolen, offset, model_path);
+    free(vector);
     return maxval;
 }
 
@@ -599,6 +618,17 @@ float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, co
         }
     }
     return maxval;
+}
+
+float nn_pep_mass_to_dist_custom(const float mass, float* isodist, const int isolen, const int offset,
+                                 const char* model_path) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0) {
+        return -1.0f;
+    }
+
+    float vector[5] = {0};
+    mass_to_vector(mass, vector);
+    return isogen_model_to_dist_from_file(vector, 5, isodist, isolen, offset, model_path);
 }
 
 

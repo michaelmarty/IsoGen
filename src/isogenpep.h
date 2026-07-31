@@ -28,6 +28,10 @@ ISOGENPEP_EXPORTS float fft_pep_seq_to_dist(const char* sequence, float* isodist
 ISOGENPEP_EXPORTS float pep_mass_to_dist_fitting(float mass, float *isodist, int isolen, int offset);
 ISOGENPEP_EXPORTS float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset);
 ISOGENPEP_EXPORTS float nn_pep_mass_to_dist(float mass, float* isodist, int isolen, int offset);
+ISOGENPEP_EXPORTS float nn_pep_seq_to_dist_custom(const char* seq, float* isodist, int isolen, int offset,
+                                                  const char* model_path);
+ISOGENPEP_EXPORTS float nn_pep_mass_to_dist_custom(float mass, float* isodist, int isolen, int offset,
+                                                   const char* model_path);
 ISOGENPEP_EXPORTS int nn_pep_mass_to_isolen(float mass);
 ISOGENPEP_EXPORTS int fft_pep_mass_to_isolen(float mass);
 ISOGENPEP_EXPORTS void run_file(const char* filename);

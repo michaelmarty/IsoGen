@@ -41,6 +41,7 @@ endif()
 
 add_library(isogen SHARED
                 isogendep.c isogendep.h
+                isogen_models.c isogen_models.h
                 ${FFTW_DIR}/fftw3.h
                 isogenpep.c isogenpep.h
                 isogenrna.c isogenrna.h
