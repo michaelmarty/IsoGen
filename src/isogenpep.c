@@ -647,14 +647,29 @@ float nn_pep_mass_to_dist_custom(const float mass, float* isodist, const int iso
 
 
 float brain_pep_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0 || !isfinite(mass) || mass <= 0.0f) {
+        return -1.0f;
+    }
     int* brain_list = (int*)calloc(5, sizeof(int));
+    if (brain_list == NULL) {
+        return -1.0f;
+    }
     pep_mass_to_fftlist(mass, brain_list);
 
     int brain_isolen = fft_pep_mass_to_isolen(mass);
 
     float* brain_isodist = (float*)calloc(brain_isolen, sizeof(float));
+    if (brain_isodist == NULL) {
+        free(brain_list);
+        return -1.0f;
+    }
 
     float max_val = brain_list_to_dist(brain_list, brain_isolen, brain_isodist);
+    if (max_val < 0.0f || !isfinite(max_val)) {
+        free(brain_isodist);
+        free(brain_list);
+        return -1.0f;
+    }
 
     if (brain_isolen < isolen) {
         for (int i = brain_isolen - offset - 1; i >= 0; i--) {
@@ -683,14 +698,21 @@ float brain_pep_mass_to_dist(const float mass, float* isodist, const int isolen,
 
 
 float brain_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen, const int offset) {
+    if (prepare_isodist_output(isodist, isolen, offset) != 0 || sequence == NULL || sequence[0] == '\0') {
+        return -1.0f;
+    }
     int* formulalist = (int*)calloc(5, sizeof(int));
     // Check for null
     if (formulalist == NULL)
     {
         printf("Error: Could not allocate memory for formulalist\n");
-        return 1;
+        return -1.0f;
     }
     int len = pep_seq_to_fftlist(sequence, formulalist);
+    if (len < 1) {
+        free(formulalist);
+        return -1.0f;
+    }
 
     int brain_isolen;
 
@@ -705,8 +727,17 @@ float brain_pep_seq_to_dist(const char* sequence, float* isodist, const int isol
     }
 
     float* brain_isodist = (float*)calloc(brain_isolen, sizeof(float));
+    if (brain_isodist == NULL) {
+        free(formulalist);
+        return -1.0f;
+    }
 
     float maxval = brain_list_to_dist(formulalist, brain_isolen, brain_isodist);
+    if (maxval < 0.0f || !isfinite(maxval)) {
+        free(brain_isodist);
+        free(formulalist);
+        return -1.0f;
+    }
 
     if (brain_isolen < isolen) {
         for (int i = brain_isolen - offset - 1; i >= 0; i--) {

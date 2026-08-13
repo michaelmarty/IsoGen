@@ -6,6 +6,11 @@ project(isogen C CXX)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
+option(
+    ISOGEN_STATIC_GNU_RUNTIME
+    "Statically link libstdc++ and libgcc into Linux binaries for portability"
+    ON
+)
 
 get_filename_component(INSTALL_DIR ../bin ABSOLUTE)
 message(STATUS "INSTALL_DIR: ${INSTALL_DIR}")
@@ -72,6 +77,15 @@ install(TARGETS isogen DESTINATION ${INSTALL_DIR})
 add_executable(isogen_test isogen_test.cpp)
 target_include_directories(isogen_test PUBLIC ${SRC_DIR})
 target_link_libraries(isogen_test PUBLIC isogen)
+
+# Prebuilt Linux artifacts must not inherit the build host's libstdc++ symbol
+# requirements. Otherwise a build made with a recent GCC cannot be loaded on
+# older supported distributions or in many conda environments.
+if(ISOGEN_STATIC_GNU_RUNTIME AND UNIX AND NOT APPLE AND
+   CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    target_link_options(isogen PRIVATE -static-libstdc++ -static-libgcc)
+    target_link_options(isogen_test PRIVATE -static-libstdc++ -static-libgcc)
+endif()
 
 install(TARGETS isogen_test DESTINATION ${INSTALL_DIR})
 

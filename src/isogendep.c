@@ -336,8 +336,8 @@ cleanup:
 }
 
 
-float brain_calc_psi(const int isolist[5], const int l) {
-    float psi = 0;
+static double brain_calc_psi(const int isolist[5], const int l) {
+    double psi = 0.0;
     psi += isolist[0] * pow(c_root, -l); //Add C portion
     psi += isolist[1] * pow(h_root, -l); //Add H portion
     psi += isolist[2] * pow(n_root, -l); //Add N portion
@@ -348,26 +348,55 @@ float brain_calc_psi(const int isolist[5], const int l) {
 }
 
 float brain_list_to_dist(const int isolist[5], const int length, float* isodist) {
+    if (isolist == NULL || isodist == NULL || length <= 0) {
+        return -1.0f;
+    }
+    for (int i = 0; i < 5; i++) {
+        if (isolist[i] < 0) {
+            return -1.0f;
+        }
+    }
+
+    memset(isodist, 0, (size_t)length * sizeof(*isodist));
     double* q = (double*)calloc(length, sizeof(double));
     double* psi = (double*)calloc(length, sizeof(double));
+    if (q == NULL || psi == NULL) {
+        free(q);
+        free(psi);
+        return -1.0f;
+    }
 
     for (int i = 0; i < length; i++) {
         psi[i] = brain_calc_psi(isolist, i);
+        if (!isfinite(psi[i])) {
+            free(q);
+            free(psi);
+            return -1.0f;
+        }
     }
 
     q[0] = 1;
 
     for (int j = 1;j < length;j++) {
-        float s = 0.0;
+        double s = 0.0;
         for (int l = 1; l < j+1; l++) {
             s += q[j-l] * psi[l];
         }
         q[j] = -s / j;
+        if (!isfinite(q[j])) {
+            free(q);
+            free(psi);
+            return -1.0f;
+        }
     }
 
     free(psi);
 
     const double maxval = normalize_isodist(q, length);
+    if (!isfinite(maxval)) {
+        free(q);
+        return -1.0f;
+    }
 
     //memcpy buffer to isodist
     for (int i = 0; i < length; i++)

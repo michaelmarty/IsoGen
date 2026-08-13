@@ -14,6 +14,13 @@ be built and tested separately.
 
 ## Build locally
 
+Linux CMake builds enable `ISOGEN_STATIC_GNU_RUNTIME` by default. This passes
+`-static-libstdc++ -static-libgcc` when linking the native artifacts so a
+binary built with a recent GCC does not require that GCC version's
+`GLIBCXX_*` symbols on the target system. Distribution maintainers may opt
+out with `-DISOGEN_STATIC_GNU_RUNTIME=OFF` when the runtime dependency is
+managed by the distribution.
+
 Install the release tools:
 
 ```shell
@@ -47,6 +54,16 @@ that `auditwheel` can bundle it:
 python -m pip install auditwheel patchelf
 auditwheel repair dist/isogen-*-linux_x86_64.whl --wheel-dir wheelhouse
 ```
+
+Before committing a rebuilt Linux library, confirm that it has no dynamic GNU
+runtime dependency:
+
+```shell
+readelf --dynamic bin/isogen.so | grep -E 'libstdc\+\+|libgcc_s'
+readelf --version-info bin/isogen.so | grep GLIBCXX_
+```
+
+Both commands should produce no output.
 
 ## Test an artifact
 
