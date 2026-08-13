@@ -214,13 +214,13 @@ int neural_net(const float *vector, float *isodist, const struct IsoGenWeights w
     matrix_vector_multiply(weights.w1, vector, weights.b1, l1, weights.vl2, weights.vl1, 1,0);
 
     // Calculate the second layer
-    for (int i = 0; i < weights.vl3; i++) {
-        l2[i] = weights.b2[i];
-        for (int j = 0; j < weights.vl2; j++) {
-            l2[i] += l1[j] * weights.w2[i * weights.vl2 + j];
-        }
-        l2[i] = softsign(l2[i]);
-    }
+    // for (int i = 0; i < weights.vl3; i++) {
+    //     l2[i] = weights.b2[i];
+    //     for (int j = 0; j < weights.vl2; j++) {
+    //         l2[i] += l1[j] * weights.w2[i * weights.vl2 + j];
+    //     }
+    //     l2[i] = softsign(l2[i]);
+    // }
     matrix_vector_multiply(weights.w2, l1, weights.b2, l2, weights.vl3, weights.vl2, 1,0);
 
     // Calculate the third layer
@@ -2568,18 +2568,22 @@ const double fftarray[3597][2] = {
 
 double normalize_isodist(double* buffer, const int length)
 {
+    if (buffer == NULL || length <= 0)
+    {
+        return 0;
+    }
     double max_val = 0;
     double sum = 0;
     for (int i = 0; i < length; i++)
     {
+        if (buffer[i] < 0)
+        {
+            buffer[i] = 0;
+        }
         sum += buffer[i];
         if (buffer[i] > max_val)
         {
             max_val = buffer[i];
-        }
-        if (buffer[i] < 0)
-        {
-            buffer[i] = 0;
         }
     }
     if (sum == 0)

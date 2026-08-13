@@ -18,7 +18,7 @@ def isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs):
             uses the RNA intensity model with a DNA-specific mass axis.
             ATOM accepts formulas and uses the FFT method.
         isolen: Number of isotope values to return.
-        method: Distribution engine, either ``FFT`` or ``NN``.
+        method: Distribution engine: ``FFT``, ``NN``, or ``BRAIN``.
         **mass_kwargs: Options forwarded to :func:`mass.gen_mass_axis`, such
             as ``ion_type``, ``isotope_spacing``, ``threeend``, or ``fiveend``.
 
@@ -80,4 +80,5 @@ if __name__ == "__main__":
     print(isodist(10000, type="PEPTIDE", isolen=128, method="FFT"))
     print(isodist("PdW2CO3", type="ATOM", isolen=16, method="FFT"))
     print(isodist(test_pep_seq, type="PEPTIDE", isolen=128, method="FFT"))
+    print(isodist(test_pep_seq, type="PEPTIDE", isolen=128, method="BRAIN"))
     print(isodist(test_rna_seq, type="RNA", isolen=128, method="FFT"))

@@ -63,7 +63,7 @@ def build_parser():
     dist_parser.add_argument(
         "--method",
         default="FFT",
-        choices=("FFT", "NN"),
+        choices=("FFT", "NN", "BRAIN"),
         type=str.upper,
         help="distribution method (default: FFT)",
     )
@@ -87,7 +87,7 @@ def build_parser():
     plot_parser.add_argument(
         "--method",
         default="FFT",
-        choices=("FFT", "NN"),
+        choices=("FFT", "NN", "BRAIN"),
         type=str.upper,
         help="distribution method (default: FFT)",
     )

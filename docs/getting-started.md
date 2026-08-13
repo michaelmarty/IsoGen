@@ -48,7 +48,7 @@ intensities = protein[:, 1]
 ```
 
 Supported `type` values are `PEPTIDE`, `RNA`, `DNA`, and `ATOM`; names are
-case-insensitive in the Python API. `FFT` and `NN` are available for
+case-insensitive in the Python API. `FFT`, `BRAIN`, and `NN` are available for
 biopolymer inputs. `ATOM` supports `FFT` only.
 
 ## Peptide ion types
@@ -117,7 +117,7 @@ RNA fragment-ion series.
 
 !!! important
     `ion_type`, `threeend`, and `fiveend` are forwarded to the mass-axis
-    calculation. They change the monoisotopic origin, but the FFT or NN
+    calculation. They change the monoisotopic origin, but the FFT, BRAIN, or NN
     sequence-model intensity vector retains its standard terminal
     composition.
 
@@ -127,9 +127,11 @@ FFT is the default:
 
 ```python
 fft_result = isogen.isodist("PEPTIDE", method="FFT")
+brain_result = isogen.isodist("PEPTIDE", method="BRAIN")
 nn_result = isogen.isodist("PEPTIDE", method="NN")
 ```
 
-FFT performs the direct isotope calculation. The neural-network engine uses
-the packaged pretrained model and can be useful for rapid approximation.
+FFT performs the direct isotope calculation, while BRAIN uses a polynomial
+recurrence. The neural-network engine uses the packaged pretrained model and
+can be useful for rapid approximation.
 Elemental formulas always use the direct FFT calculation.

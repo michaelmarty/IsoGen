@@ -11,3 +11,4 @@
 *.py[cod]
 /bin/sign.py
 /.pypirc
+/pip_test/

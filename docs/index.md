@@ -21,7 +21,7 @@ peptides and formulas and 1.0027 Da for nucleic acids by default.
 
 ## Features
 
-- FFT and neural-network isotope intensity calculations
+- FFT, BRAIN polynomial-recurrence, and neural-network intensity calculations
 - Neutral-mass, sequence, and elemental-formula input
 - Protein, RNA, DNA, and ATOM mass axes
 - Intact proteins and a, b, c, x, y, and z fragment ions

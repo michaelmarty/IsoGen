@@ -28,8 +28,8 @@ isogen dist C6H12O6 --type ATOM --isolen 32 --output glucose.csv
 ```
 
 The output contains a header followed by `mass,intensity` rows. Use
-`--method FFT` or `--method NN` to choose the calculation engine. `ATOM`
-inputs support `FFT` only.
+`--method FFT`, `--method BRAIN`, or `--method NN` to choose the calculation
+engine. `ATOM` inputs support `FFT` only.
 
 ## Example stick plots
 
@@ -44,3 +44,7 @@ Save without opening a window:
 ```shell
 isogen plot --save isodist_examples.png --no-show
 ```
+
+The example figure compares the same protein sequence with FFT, NN, and BRAIN.
+The `--method` option selects the engine used by the protein-mass and RNA
+panels; the three protein-sequence comparison panels remain fixed.

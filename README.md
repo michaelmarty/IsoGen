@@ -2,11 +2,15 @@
 IsoGen is a toolbox for predicting isotope distributions from protein, RNA,
 DNA, neutral-mass, and elemental-formula inputs.
 
-It includes both an absolute FFT-based calculation and a neural network prediction.
+It includes absolute FFT and BRAIN calculations plus a neural network prediction.
 
 Pretrained models are included for both peptides and RNA based on either average mass or sequence. DNA prediction uses the RNA model due to the similarity of their elemental compositions.
 
 The FFT methods are absolute and are limited only by the accuracy of the data you put in. They are a little faster, especially on larger species.
+
+The BRAIN method is an absolute calculation based on a polynomial recurrence.
+It provides an alternative to FFT for peptide, RNA, and DNA sequence or
+neutral-mass inputs.
 
 The NN methods are very accurate and can be faster on smaller species. The primary advantage of these is that they can be retrained on non-standard isotope distributions.
 
@@ -33,6 +37,9 @@ From Python:
 import isogen
 
 protein = isogen.isodist("ACDEFGHIK", type="PEPTIDE", isolen=64)
+protein_brain = isogen.isodist(
+    "ACDEFGHIK", type="PEPTIDE", isolen=64, method="BRAIN"
+)
 rna = isogen.isodist("AUGCAGUACGUA", type="RNA", isolen=64)
 dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
 glucose_mass_dist = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
@@ -40,7 +47,10 @@ glucose_mass_dist = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
 
 The output is a numpy array of shape `(isolen, 2)` with the first column containing the monoisotopic mass and the second column containing the relative intensity. The `isolen` parameter controls the number of isotopic peaks returned.
 
-In addition to FFT methods, IsoGen provides neural-network models for peptides and RNA. The default is to use the exact "FFT" model with averagines to calculate the isotope distribution from an average protein, RNA, or DNA mass. Turning on "NN" mode uses the neural-network model to predict the isotope distribution from a peptide or RNA sequence. 
+IsoGen provides FFT, BRAIN, and neural-network methods for peptides and RNA.
+The default is the exact `FFT` calculation. `BRAIN` selects the polynomial
+recurrence calculation, while `NN` uses the neural-network model to predict
+the distribution from a peptide or RNA sequence or neutral mass.
 
 The `PEPTIDE` model is trained on peptide sequences, while the `RNA` model is trained on RNA sequences. The `DNA` type uses the RNA model, and
 
@@ -280,7 +290,13 @@ If you have any questions, please email mtmarty@utexas.edu or open a ticket on G
 
 ### 1.0.3
 
-Merging in new features from John Pavek.
+- Added the BRAIN polynomial-recurrence isotope calculation for peptide, RNA,
+  and DNA sequence and neutral-mass inputs.
+- Added `method="BRAIN"` to the Python API and command-line interface.
+- Added side-by-side FFT, NN, and BRAIN protein-sequence example plots.
+- Added runtime-dispatched AVX2/FMA neural-network acceleration on supported
+  x86 processors, with a portable scalar fallback.
+- Improved native normalization and large-input regression coverage.
 
 ### 1.0.2
 

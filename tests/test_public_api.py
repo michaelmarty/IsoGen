@@ -213,7 +213,7 @@ def test_sequence_mass_axes_start_at_pyteomics_mass(
     np.testing.assert_allclose(np.diff(axis), spacing)
 
 
-@pytest.mark.parametrize("method", ["FFT", "NN"])
+@pytest.mark.parametrize("method", ["FFT", "NN", "BRAIN"])
 @pytest.mark.parametrize(
     ("analyte_type", "sequence", "expected_mass"),
     [
@@ -248,6 +248,42 @@ def test_isodist_sequence_outputs(method, analyte_type, sequence, expected_mass)
     assert distribution[0, 0] == pytest.approx(expected_mass(), abs=3e-5)
     assert distribution[:, 1].min() >= 0
     assert distribution[:, 1].max() == pytest.approx(1.0, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("reference_method", "minimum_similarity"),
+    [("FFT", 0.99999), ("NN", 0.998)],
+)
+@pytest.mark.parametrize(
+    ("analyte_type", "input_value"),
+    [
+        ("PEPTIDE", "PEPTIDE"),
+        ("PEPTIDE", 10_000.0),
+        ("RNA", "AUGCAGUACGUA"),
+        ("RNA", 10_000.0),
+    ],
+)
+def test_brain_intensities_agree_with_existing_methods(
+    reference_method, minimum_similarity, analyte_type, input_value
+):
+    """BRAIN should reproduce the established distribution shape."""
+    brain = isogen.isodist(
+        input_value,
+        type=analyte_type,
+        isolen=128,
+        method="BRAIN",
+    )[:, 1]
+    reference = isogen.isodist(
+        input_value,
+        type=analyte_type,
+        isolen=128,
+        method=reference_method,
+    )[:, 1]
+
+    cosine_similarity = np.dot(brain, reference) / (
+        np.linalg.norm(brain) * np.linalg.norm(reference)
+    )
+    assert cosine_similarity > minimum_similarity
 
 
 def test_fft_peptide_intensities_match_pyteomics_isotopologues():

@@ -13,6 +13,11 @@ isogen.isodist(
 )
 ```
 
+For peptide, RNA, and DNA inputs, `method` accepts `FFT`, `BRAIN`, or `NN`.
+FFT and BRAIN are absolute calculations; BRAIN uses a polynomial recurrence,
+while NN uses a bundled trained model. Method names are case-insensitive in
+the Python API.
+
 ## Numeric mass input
 
 When `input` is numeric, it becomes the first point on the mass axis:
@@ -101,5 +106,5 @@ RNA fragment-ion series are not currently implemented. RNA `threeend` and
 manually truncated sequence.
 
 These keyword arguments modify the monoisotopic mass-axis origin. They do not
-change the terminal composition used by the FFT or NN sequence intensity
-model.
+change the terminal composition used by the FFT, BRAIN, or NN sequence
+intensity model.

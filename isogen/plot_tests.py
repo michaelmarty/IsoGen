@@ -39,25 +39,37 @@ def stick_plot(ax, distribution, title):
 def plot_isodist_examples(isolen=64, method="FFT"):
     """Create protein, RNA, DNA, and formula example plots.
 
+    The protein sequence is shown with FFT, NN, and BRAIN so the three
+    calculation engines can be compared with identical input.
+
     Args:
         isolen: Number of isotope positions in each subplot.
-        method: Distribution engine, either ``FFT`` or ``NN``, for the
-            protein and RNA example panels.
+        method: Distribution engine: ``FFT``, ``NN``, or ``BRAIN`` for the
+            protein mass and RNA example panels.
 
     Returns:
-        ``(figure, axes)`` from a 3-by-2 Matplotlib subplot layout.
+        ``(figure, axes)`` from a 4-by-2 Matplotlib subplot layout.
     """
     examples = [
-        ("Protein — mass input ({})".format(method), test_mass, "PEPTIDE", method),
-        ("Protein — sequence input ({})".format(method), test_pep_seq, "PEPTIDE", method),
+        (
+            "Protein — mass input ({})".format(method),
+            test_mass,
+            "PEPTIDE",
+            method,
+        ),
+        ("Protein — sequence input (FFT)", test_pep_seq, "PEPTIDE", "FFT"),
+        ("Protein — sequence input (NN)", test_pep_seq, "PEPTIDE", "NN"),
+        ("Protein — sequence input (BRAIN)", test_pep_seq, "PEPTIDE", "BRAIN"),
         ("RNA — mass input ({})".format(method), test_mass, "RNA", method),
         ("RNA — sequence input ({})".format(method), test_rna_seq, "RNA", method),
         ("DNA — sequence input (NN)", test_dna_seq, "DNA", "NN"),
         ("Formula — atomic input (FFT)", test_atomic_formula, "ATOM", "FFT"),
     ]
 
-    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
-    for ax, (title, input_value, analyte_type, example_method) in zip(axes.flat, examples):
+    fig, axes = plt.subplots(4, 2, figsize=(12, 16))
+    for ax, (title, input_value, analyte_type, example_method) in zip(
+        axes.flat, examples
+    ):
         distribution = isodist(
             input=input_value,
             type=analyte_type,

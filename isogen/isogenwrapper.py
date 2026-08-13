@@ -103,6 +103,34 @@ isogen_c_lib.nn_pep_seq_to_dist.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctyp
                                             ctypes.c_int]
 isogen_c_lib.nn_pep_seq_to_dist.restype = ctypes.c_float
 
+for _brain_mass_function_name in (
+    "brain_rna_mass_to_dist",
+    "brain_pep_mass_to_dist",
+):
+    _brain_mass_function = getattr(isogen_c_lib, _brain_mass_function_name)
+    _brain_mass_function.argtypes = [
+        ctypes.c_float,
+        ctypes.POINTER(ctypes.c_float),
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    _brain_mass_function.restype = ctypes.c_float
+
+for _brain_sequence_function_name in (
+    "brain_rna_seq_to_dist",
+    "brain_pep_seq_to_dist",
+):
+    _brain_sequence_function = getattr(
+        isogen_c_lib, _brain_sequence_function_name
+    )
+    _brain_sequence_function.argtypes = [
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_float),
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    _brain_sequence_function.restype = ctypes.c_float
+
 isogen_c_lib.nn_rna_mass_to_dist_custom.argtypes = [
     ctypes.c_float,
     ctypes.POINTER(ctypes.c_float),
@@ -482,6 +510,111 @@ def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
 
     return np.array(isodist)
 
+
+def brain_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
+    """Generate BRAIN isotope intensities from a sequence.
+
+    DNA sequences use the RNA calculation after replacing thymine with
+    uracil.
+
+    Args:
+        sequence: Protein, RNA, or DNA sequence.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown type.
+    """
+    type = type.upper() if isinstance(type, str) else type
+    if type == "DNA":
+        sequence = sequence.upper().replace("T", "U")
+    sequence_bytes = sequence.encode("utf-8")
+    isodist = np.zeros(isolen, dtype=np.float32)
+    ptr = isodist.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+
+    if type in ("RNA", "DNA"):
+        function = isogen_c_lib.brain_rna_seq_to_dist
+    elif type == "PEPTIDE":
+        function = isogen_c_lib.brain_pep_seq_to_dist
+    else:
+        print("Unknown type for BRAIN generation:", type)
+        return None
+
+    function(
+        sequence_bytes,
+        ptr,
+        ctypes.c_int(isolen),
+        ctypes.c_int(offset),
+    )
+    return isodist
+
+
+def brain_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
+    """Generate BRAIN isotope intensities from a mass or sequence.
+
+    Args:
+        input: Numeric neutral mass or protein, RNA, or DNA sequence.
+        type: ``PEPTIDE``, ``RNA``, or ``DNA``.
+        isolen: Output vector length.
+        offset: Number of leading zero-intensity isotope positions.
+
+    Returns:
+        A float32 NumPy intensity vector, or ``None`` for an unknown type.
+    """
+    type = type.upper() if isinstance(type, str) else type
+    if isinstance(input, str):
+        return brain_gen_seq_isodist(
+            input, type=type, isolen=isolen, offset=offset
+        )
+
+    isodist = np.zeros(isolen, dtype=np.float32)
+    ptr = isodist.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+
+    if type in ("RNA", "DNA"):
+        function = isogen_c_lib.brain_rna_mass_to_dist
+    elif type == "PEPTIDE":
+        function = isogen_c_lib.brain_pep_mass_to_dist
+    else:
+        print("Unknown type for BRAIN generation:", type)
+        return None
+
+    function(
+        ctypes.c_float(input),
+        ptr,
+        ctypes.c_int(isolen),
+        ctypes.c_int(offset),
+    )
+    return isodist
+
+
+def brain_pep_seq_to_dist(sequence, isolen=128, offset=0):
+    """Generate BRAIN intensities from a peptide sequence."""
+    return brain_gen_seq_isodist(
+        sequence, type="PEPTIDE", isolen=isolen, offset=offset
+    )
+
+
+def brain_rna_seq_to_dist(sequence, isolen=128, offset=0):
+    """Generate BRAIN intensities from an RNA sequence."""
+    return brain_gen_seq_isodist(
+        sequence, type="RNA", isolen=isolen, offset=offset
+    )
+
+
+def brain_pep_mass_to_dist(mass, isolen=128, offset=0):
+    """Generate BRAIN intensities from a peptide-like neutral mass."""
+    return brain_gen_isodist(
+        mass, type="PEPTIDE", isolen=isolen, offset=offset
+    )
+
+
+def brain_rna_mass_to_dist(mass, isolen=128, offset=0):
+    """Generate BRAIN intensities from an RNA-like neutral mass."""
+    return brain_gen_isodist(
+        mass, type="RNA", isolen=isolen, offset=offset
+    )
+
 def gen_isodist(
     input,
     type="PEPTIDE",
@@ -490,14 +623,14 @@ def gen_isodist(
     method="FFT",
     model_path=None,
 ):
-    """Dispatch a mass or sequence to an FFT or neural-network model.
+    """Dispatch a mass or sequence to an isotope-distribution method.
 
     Args:
         input: Numeric neutral mass or sequence string.
         type: ``PEPTIDE``, ``RNA``, ``DNA``, or ``ATOM``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
-        method: ``FFT`` or ``NN``.
+        method: ``FFT``, ``NN``, or ``BRAIN``.
         model_path: Optional custom binary model filename for the NN method.
 
     Returns:
@@ -519,6 +652,10 @@ def gen_isodist(
             isolen=isolen,
             offset=offset,
             model_path=model_path,
+        )
+    elif method == "BRAIN":
+        return brain_gen_isodist(
+            input, type=type, isolen=isolen, offset=offset
         )
     else:
         print("Unknown method for generating isotope distribution:", method)

@@ -67,6 +67,11 @@ The Python wrapper loads the platform library from the repository-level `bin`
 directory during source development and from `isogen/bin` in an installed
 wheel. Linux development environments must provide the FFTW 3 runtime.
 
+On supported x86 builds, CMake compiles the neural-network acceleration in a
+separate AVX2/FMA translation unit and selects it only when the processor
+supports those instructions at runtime. Other processors use the scalar path.
+Set `-DISOGEN_ENABLE_AVX2=OFF` to build only the portable implementation.
+
 Pretrained neural-network artifacts are stored in `isogen/models`. The shared
 model loader uses that directory by default, and model training saves new
 `.pth` and `.bin` artifacts there unless an explicit `working_dir` is supplied.

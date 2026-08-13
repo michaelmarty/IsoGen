@@ -29,6 +29,12 @@ def _configure_native_functions():
     isogen_c_lib.fft_list_to_dist.argtypes = [INT_PTR, ctypes.c_int, FLOAT_PTR]
     isogen_c_lib.fft_list_to_dist.restype = ctypes.c_float
 
+    isogen_c_lib.normalize_isodist.argtypes = [
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.c_int,
+    ]
+    isogen_c_lib.normalize_isodist.restype = ctypes.c_double
+
 
 _configure_native_functions()
 
@@ -62,6 +68,16 @@ def test_brain_formula_entry_point_rejects_invalid_arguments():
     )
     assert isogen_c_lib.brain_list_to_dist(formula, 0, _float_pointer(observed)) == -1.0
     assert isogen_c_lib.brain_list_to_dist(formula, len(observed), None) == -1.0
+
+
+def test_normalization_excludes_clamped_negative_values_from_sum():
+    values = (ctypes.c_double * 3)(0.8, 0.3, -0.1)
+
+    maximum = isogen_c_lib.normalize_isodist(values, len(values))
+
+    assert list(values) == pytest.approx([0.8 / 1.1, 0.3 / 1.1, 0.0])
+    assert sum(values) == pytest.approx(1.0)
+    assert maximum == pytest.approx(0.8 / 1.1)
 
 
 @pytest.mark.parametrize(
