@@ -7,7 +7,9 @@ They are development utilities rather than part of IsoGen's top-level API.
 """
 
 import multiprocessing
+import math
 import os
+import random
 from itertools import combinations_with_replacement
 
 if __package__:
@@ -16,6 +18,9 @@ if __package__:
 else:
     from isogen_tools import *
     from isogenwrapper import fft_gen_seq_isodist
+
+
+NUCLEOTIDES = ("A", "C", "G", "U")
 
 def get_big_seq(seqs):
     """Flatten RNA sequences into one list of nucleotide characters.
@@ -151,7 +156,7 @@ def create_rnas():
 
     return rnaseqs
 
-def create_all_rnas(min_length=1, max_length=10, max_count=500):
+def create_all_rnas(min_length=1, max_length=10, max_count=None):
     """Create one sorted RNA sequence for each nucleotide composition.
 
     This uses combinations with replacement rather than permutations, so
@@ -165,17 +170,18 @@ def create_all_rnas(min_length=1, max_length=10, max_count=500):
     Returns:
         A list of composition-unique RNA sequence strings.
     """
-    nucleotides = ["A", "C", "G", "U"]
     seqs = []
 
     for i in range(min_length, max_length+1):
         print("Processing length: ", str(i))
-        all_combos = []
-        for combo in combinations_with_replacement(nucleotides, i):
-            all_combos.append(''.join(combo))
-        if len(all_combos) > max_count:
-            rand_indices = random.sample(range(len(all_combos)), max_count)
-            all_combos = [all_combos[i] for i in rand_indices]
+        combination_count = math.comb(i + len(NUCLEOTIDES) - 1, len(NUCLEOTIDES) - 1)
+        if max_count is not None and combination_count > max_count:
+            all_combos = create_n_random_rnas(i, max_count)
+        else:
+            all_combos = [
+                ''.join(combo)
+                for combo in combinations_with_replacement(NUCLEOTIDES, i)
+            ]
         seqs.extend(all_combos)
     print("Produced", str(len(seqs)), "sequences.")
     return seqs
@@ -237,7 +243,7 @@ def seqs_to_vectors(seqs):
         return None
     return goodseqs, dists, vecs
 
-def gen_random_seqs_even_length(n=100, min_length=1, max_length=200, nuc_ratios=[0.25, 0.25, 0.25, 0.25]):
+def gen_random_seqs_even_length(n=100, min_length=1, max_length=200, nuc_ratios=(0.25, 0.25, 0.25, 0.25)):
     big_seq = gen_random_bigseq(nuc_ratios[0], nuc_ratios[1], nuc_ratios[2], nuc_ratios[3])
     np.random.shuffle(big_seq)
 
@@ -286,11 +292,12 @@ def gen_random_seqs_even_length(n=100, min_length=1, max_length=200, nuc_ratios=
 
 def create_all_rnas_oflength(length):
     seqs = []
-    for combo in combinations_with_replacement(nucleotides, length):
+    for combo in combinations_with_replacement(NUCLEOTIDES, length):
         seqs.append(''.join(combo))
     return seqs
 
 def create_random_seq(length):
+    nucleotides = list(NUCLEOTIDES)
     random.shuffle(nucleotides)
     remainder = length
     seq = ''
@@ -327,13 +334,13 @@ def create_n_random_rnas(length, n=1000):
     seqs = []
     vecs = []
     #First check if there are sufficient combinations to need to not just make all of them
-    combinations = math.factorial(4 + length - 1)/(math.factorial(length)*(math.factorial(4-1)))
+    combination_count = math.comb(length + len(NUCLEOTIDES) - 1, len(NUCLEOTIDES) - 1)
 
     #in this case, generate all possible combinations
-    if combinations < n:
+    if combination_count <= n:
         seqs = create_all_rnas_oflength(length)
     else:
-        for i in range(n+1):
+        while len(seqs) < n:
             randseq, vec = create_random_seq(length)
             if not check_exists(vec, vecs):
                 seqs.append(randseq)

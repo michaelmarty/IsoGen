@@ -33,15 +33,16 @@ class IsoGenPepEngine(IsoGenEngineBase):
                 self.model = self.models[i]
 
     def transfer_train(self, seqs, dists, epochs=10, length=128, forcenew=False):
-        trd, ted = self.setup_data(dists, seqs)
-        print(forcenew)
-        indices = np.where(self.lengths == length)
-        if len(indices) > 0:
-            model = self.models[indices[0][0]]
-            model.run_training(trd, ted, epochs=epochs, forcenew=forcenew)
-        else:
-            print("No model with the requested isolen (" + str(length) + ") exists")
+        dists = np.asarray(dists)
+        indices = np.flatnonzero(self.lengths == length)
+        if indices.size == 0:
             raise ValueError("No model with selected isolen exists.")
+        if dists.ndim != 2 or dists.shape[1] < length:
+            raise ValueError("Training distributions are shorter than the selected model output")
+        self.isolen = length
+        trd, ted = self.setup_data(dists, np.asarray(seqs))
+        model = self.models[indices[0]]
+        model.run_training(trd, ted, epochs=epochs, forcenew=forcenew)
 
     def inputs_to_vectors(self, inputs):
         return np.array([peptide_to_vector(s) for s in inputs])

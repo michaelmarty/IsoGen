@@ -6,6 +6,8 @@ cover several mass ranges and output lengths. This is a development and model
 training module rather than part of IsoGen's top-level public API.
 """
 
+import os
+
 import numpy as np
 
 if __package__:
@@ -56,7 +58,7 @@ class IsoGenMassEngine(IsoGenEngineBase):
             model = IsoGenModelBase(isolen=l, savename="isogenmass_model_", vectorlen=self.veclen, modelid=modelid)
             self.models.append(model)
 
-    def train(self, masses=none, dists=None, n=100000, epochs=10, length=128, forcenew=False):
+    def train(self, n=100000, epochs=10, length=128, forcenew=False, masses=None, dists=None):
         """Train the model associated with one isotope-vector length.
 
         Training and validation targets are generated from random masses in
@@ -64,6 +66,10 @@ class IsoGenMassEngine(IsoGenEngineBase):
         implementation.
 
         Args:
+            masses: Optional one-dimensional array of caller-supplied masses.
+                Must be provided together with ``dists``.
+            dists: Optional two-dimensional target array. Must be provided
+                together with ``masses``.
             n: Number of training masses to generate.
             epochs: Number of training epochs.
             length: Desired isotope-distribution output length.
@@ -71,30 +77,44 @@ class IsoGenMassEngine(IsoGenEngineBase):
                 an existing model.
 
         Returns:
-            ``None``. If ``length`` is unsupported, a message is printed and
-            the method returns without training.
+            ``None``.
+
+        Raises:
+            ValueError: If the requested output length or supplied arrays are
+                incompatible.
         """
-        # find length in self.lengths
-        try:
-            modelindex = np.argwhere(self.lengths == length)[0][0]
-        except:
-            print("Length not found in list")
-            return
+        if (masses is None) != (dists is None):
+            raise ValueError("masses and dists must be provided together")
+
+        if masses is not None:
+            masses = np.asarray(masses)
+            dists = np.asarray(dists)
+            if masses.ndim != 1:
+                raise ValueError("masses must be a one-dimensional array")
+            if dists.ndim != 2:
+                raise ValueError("dists must be a two-dimensional array")
+            if len(masses) != len(dists):
+                raise ValueError("masses and dists must contain the same number of examples")
+            if dists.shape[1] < length:
+                print("Warning: Isolen does not match training data. Changing to", dists.shape[1])
+                length = dists.shape[1]
+            elif dists.shape[1] > length:
+                print("Warning: Isolen does not match training data. Truncating to", length)
+                dists = dists[:, :length]
+
+        indices = np.flatnonzero(self.lengths == length)
+        if indices.size == 0:
+            raise ValueError(f"No model with isolen {length} exists")
+        modelindex = indices[0]
         massrange = self.massranges[modelindex]
         model = self.models[modelindex]
+        self.isolen = length
+
         print("Generating Training Data for isolen:" + str(length))
-        if masses is None or dists is None:
+        if masses is None:
             input, target = gen_training_data(n, isolen=length, massrange=massrange)
             testinput, testtarget = gen_training_data(int(n * 0.1), isolen=length, massrange=massrange)
         else:
-            if dists.shape[1] < length:
-                print("Warning: Isolen does not match training data. Changing to", dists.shape[1])
-                self.isolen = dists.shape[1]
-
-            elif dists.shape[1] > length:
-                print("Warning: Isolen does not match training data. Truncating to", self.isolen)
-                dists = dists[:, :self.isolen]
-
             # Shuffle once and split
             n = len(masses)
             indices = np.random.permutation(n)
@@ -129,19 +149,19 @@ class IsoGenMassEngine(IsoGenEngineBase):
         tdata = np.load(trainfile)
         dists = tdata["dists"]
         masses = tdata["masses"]
-        trd, ted = self.setup_data(dists, masses)
-
-        indices = np.where(self.lengths == length)
-        if len(indices) > 0:
-            model = self.models[indices[0][0]]
-            model.run_training(trd, ted, epochs=epochs)
-        else:
-            print("No model with the requested isolen (" + str(length) + ") exists")
+        indices = np.flatnonzero(self.lengths == length)
+        if indices.size == 0:
             raise ValueError("No model with selected isolen exists.")
+        if dists.ndim != 2 or dists.shape[1] < length:
+            raise ValueError("Training distributions are shorter than the selected model output")
+        self.isolen = length
+        trd, ted = self.setup_data(dists, masses)
+        model = self.models[indices[0]]
+        model.run_training(trd, ted, epochs=epochs)
 
 
 
-    def train_all(self, n=100000, epochs=10, forcenew=False, ignore=[]):
+    def train_all(self, n=100000, epochs=10, forcenew=False, ignore=None):
         """Train every configured output-length model except ignored values.
 
         Args:
@@ -153,10 +173,12 @@ class IsoGenMassEngine(IsoGenEngineBase):
         Returns:
             ``None``.
         """
-        for i, l in enumerate(self.lengths):
+        if ignore is None:
+            ignore = ()
+        for l in self.lengths:
             if l in ignore:
                 continue
-            self.train(n, epochs, l)
+            self.train(n=n, epochs=epochs, length=l, forcenew=forcenew)
 
     def get_model_index(self, mass):
         """Select the first configured model range containing a mass.
@@ -254,7 +276,7 @@ if __name__ == "__main__":
     if False:
         n = 60000
         # eng.train_all(n, 20, forcenew=False, ignore=[])
-        eng.train(n, 10, 1024, forcenew=False)
+        eng.train(n=n, epochs=10, length=1024, forcenew=False)
         # eng.train_multiple(["massdata_100000.npz"], epochs=40, forcenew=False, inputname="masses")
     # exit()
 

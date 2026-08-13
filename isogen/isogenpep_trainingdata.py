@@ -12,6 +12,7 @@ import multiprocessing
 import matplotlib as mpl
 import random
 import os
+from itertools import combinations_with_replacement
 
 if __package__:
     from .isogen_tools import *

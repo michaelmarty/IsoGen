@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-import torch
-
 
 def pth_to_bin(pth_file, bin_file):
     """Flatten a PyTorch state dictionary into a raw float32 binary file."""
+    import torch
+
     pth_file = Path(pth_file)
     bin_file = Path(bin_file)
 
