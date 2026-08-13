@@ -17,6 +17,7 @@
 
 double massavgine = 111.1254;
 double avgine[5] = {4.9384, 7.7583, 1.3577, 1.4773, 0.0417};
+double averagine_coeffs[5] = {0.044440, 0.069816, 0.012218, 0.013294, 0.0003753};
 int numaminoacids = 23;
 
 int num_simp_elements = 5;
@@ -45,6 +46,12 @@ const int aa_vectors[][5] = {
     {9,9,1,2,0}
 };
 
+static const unsigned char aa_lookup[256] = {
+    ['A']=1, ['C']=2, ['D']=3, ['E']=4, ['F']=5, ['G']=6, ['H']=7, ['I']=8, ['K']=9, ['L']=10, ['M']=11,
+    ['N']=12, ['P']=13, ['Q']=14, ['R']=15, ['S']=16, ['T']=17, ['V']=18, ['W']=19, ['Y']=20,
+    ['a']=1, ['c']=2, ['d']=3, ['e']=4, ['f']=5, ['g']=6, ['h']=7, ['i']=8, ['k']=9, ['l']=10, ['m']=11,
+    ['n']=12, ['p']=13, ['q']=14, ['r']=15, ['s']=16, ['t']=17, ['v']=18, ['w']=19, ['y']=20
+};
 
 const char aaorder[] = "ACDEFGHIKLMNPQRSTVWY";
 
@@ -325,7 +332,7 @@ void add_mod_to_fftlist(const char* mod, int* fftlist) {
 }
 
 //fft
-void pep_seq_to_fftlist(const char* sequence, int* fftlist)
+int pep_seq_to_fftlist(const char* sequence, int* fftlist)
 {
     // Initialize the formulalist to zero but add the elements of water for the terminii
     fftlist[0] = 0; // Carbon
@@ -335,6 +342,7 @@ void pep_seq_to_fftlist(const char* sequence, int* fftlist)
     fftlist[4] = 0; // Sulfur
 
     int length = strlen(sequence);
+    int len = 0;
 
     int in_mod = 0;
     char curr_mod[100] = {0};
@@ -354,6 +362,7 @@ void pep_seq_to_fftlist(const char* sequence, int* fftlist)
                     fftlist[j] += aa_vectors[aaindex][j];
                 }
             }
+            len++;
         }
         else {
             if (sequence[i] == ']') {
@@ -371,6 +380,7 @@ void pep_seq_to_fftlist(const char* sequence, int* fftlist)
             }
         }
     }
+    return len;
 }
 
 
@@ -452,8 +462,11 @@ float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen
     if (aas <= 300) {
         fft_isolen = 64;
     }
-    else {
+    else if (aas <= 1000) {
         fft_isolen = 128;
+    }
+    else {
+        fft_isolen = 512;
     }
 
 
@@ -632,6 +645,93 @@ float nn_pep_mass_to_dist_custom(const float mass, float* isodist, const int iso
 }
 
 
+
+float brain_pep_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
+    int* brain_list = (int*)calloc(5, sizeof(int));
+    pep_mass_to_fftlist(mass, brain_list);
+
+    int brain_isolen = fft_pep_mass_to_isolen(mass);
+
+    float* brain_isodist = (float*)calloc(brain_isolen, sizeof(float));
+
+    float max_val = brain_list_to_dist(brain_list, brain_isolen, brain_isodist);
+
+    if (brain_isolen < isolen) {
+        for (int i = brain_isolen - offset - 1; i >= 0; i--) {
+            isodist[i+offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+    else {
+        for (int i = isolen - offset - 1; i >= 0; i--) {
+            isodist[i + offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+
+    free(brain_isodist);
+    free(brain_list);
+
+    if (max_val > 0.0f) {
+        for (int i = 0; i < isolen; i++) {
+            isodist[i] /= max_val;
+        }
+    }
+
+    return max_val;
+}
+
+
+float brain_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen, const int offset) {
+    int* formulalist = (int*)calloc(5, sizeof(int));
+    // Check for null
+    if (formulalist == NULL)
+    {
+        printf("Error: Could not allocate memory for formulalist\n");
+        return 1;
+    }
+    int len = pep_seq_to_fftlist(sequence, formulalist);
+
+    int brain_isolen;
+
+    if (len <= 300) {
+        brain_isolen = 64;
+    }
+    else if (len <= 1000) {
+        brain_isolen = 128;
+    }
+    else {
+        brain_isolen = 1024;
+    }
+
+    float* brain_isodist = (float*)calloc(brain_isolen, sizeof(float));
+
+    float maxval = brain_list_to_dist(formulalist, brain_isolen, brain_isodist);
+
+    if (brain_isolen < isolen) {
+        for (int i = brain_isolen - offset - 1; i >= 0; i--) {
+            isodist[i+offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+    else {
+        for (int i = isolen - offset - 1; i >= 0; i--) {
+            isodist[i + offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+
+    free(brain_isodist);
+    free(formulalist);
+
+    if (maxval > 0.0f) {
+        for (int i = 0; i < isolen; i++) {
+            isodist[i] /= maxval;
+        }
+    }
+
+    return maxval;
+}
 
 
 #define MAX_LINE_LENGTH 1024

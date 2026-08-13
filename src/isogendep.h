@@ -59,7 +59,10 @@ ISOGENDEP_EXPORTS int neural_net(const float *vector, float *isodist, const stru
 ISOGENDEP_EXPORTS float softsign(const float x);
 ISOGENDEP_EXPORTS float sigmoid(const float x);
 ISOGENDEP_EXPORTS void mass_to_vector(const float mass, float *vector);
+ISOGENDEP_EXPORTS void isogenmass_nn(const float mass, float *isodist, int isolen, const char* analyte);
+ISOGENDEP_EXPORTS void isogen_atom(const char* sequence, float* isodist, int isolen);
 ISOGENDEP_EXPORTS float fft_list_to_dist(const int isolist[5], const int length, float* isodist);
+ISOGENDEP_EXPORTS float brain_list_to_dist(const int isolist[5], const int length, float* isodist);
 
 extern const double fftarray[3597][2];
 extern const int arraylen;
@@ -72,6 +75,8 @@ extern int amino_acid_vectors[][5];
 extern const int dna_vectors[][5];
 extern int num_simp_elements;
 extern const int numelements;
+extern char* rna_names[];
+extern char* dna_names[];
 extern const char pepOrder[];
 extern const char *elements[];
 

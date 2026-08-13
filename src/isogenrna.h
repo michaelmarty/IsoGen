@@ -30,4 +30,6 @@ ISOGENRNA_EXPORTS float nn_rna_seq_to_dist_custom(const char* seq, float* isodis
                                                   const char* model_path);
 ISOGENRNA_EXPORTS float nn_rna_mass_to_dist_custom(float mass, float* isodist, int isolen, int offset,
                                                    const char* model_path);
+ISOGENRNA_EXPORTS float brain_rna_mass_to_dist(float mass, float* isodist, int isolen, int offset);
+ISOGENRNA_EXPORTS float brain_rna_seq_to_dist(const char* sequence, float* isodist, int isolen, int offset);
 #endif

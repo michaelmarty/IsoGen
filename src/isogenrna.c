@@ -13,15 +13,24 @@
 
 
 const char rnaOrder[] = "ACGU";
-const float rnaveragine_mass = 320.28;
+
+//All rna averagine values assume 1 phospho per nucleotide
+const float rnaveragine_mass = 320.283814;
 const double rnaveragine_comp_numerical[] = {9.50, 10.75, 3.75, 7.0, 0};
 
-const int rna_vectors[][5] = {
-    {10,11,5,2,0},
-    {9,11,3,3,0},
-    {10,11,5,3,0},
-    {9,10,2,4,0}
+static const unsigned char nt_lookup[256] = {
+    ['A']=1, ['C']=2, ['G']=3, ['U']=4,
+    ['a']=1, ['c']=2, ['g']=3, ['u']=4
 };
+
+const int rna_vectors[][5] = {
+    {10,11,5,6,0},
+    {9,11,3,7,0},
+    {10,11,5,7,0},
+    {9,10,2,8,0}
+};
+
+const double rnaveragine_coeff[] = {0.029661, 0.033564, 0.01171, 0.02186, 0};
 
 static int prepare_isodist_output(float* isodist, const int isolen, const int offset)
 {
@@ -104,6 +113,41 @@ int nt_to_index(char nt) {
 }
 
 
+
+int fft_rna_len_to_isolen(const int rna_len) {
+    if (rna_len < 200) {
+        return 64;
+    }
+    if (rna_len < 501) {
+        return 128;
+    }
+    return 1024;
+}
+
+int nn_rna_mass_to_isolen(const float mass) {
+    if (mass < 24000) {
+        return 32;
+    }
+    if (mass < 65000) {
+        return 64;
+    }
+    if (mass < 165000) {
+        return 128;
+    }
+    return -1;
+}
+
+int fft_rna_mass_to_isolen(float mass) {
+    if (mass < 65000) {
+        return 64;
+    }
+    if (mass < 165000) {
+        return 128;
+    }
+    return 1024;
+}
+
+
 int rna_seq_to_vector(const char* seq, float* vector)
 //RNA -> Vector 4 length list of number of A C G U
 {
@@ -122,7 +166,7 @@ int rna_seq_to_vector(const char* seq, float* vector)
 }
 
 
-void rna_seq_to_fftlist(const char* sequence, int* fftlist)
+int rna_seq_to_fftlist(const char* sequence, int* fftlist)
 {
     // Initialize the formulalist to zero but add the elements of water for the terminii
     fftlist[0] = 0; // Carbon
@@ -146,9 +190,11 @@ void rna_seq_to_fftlist(const char* sequence, int* fftlist)
     }
 
     fftlist[3] += (seq_len - 1) * 4;
+    return seq_len;
 }
 
 
+//fft
 float fft_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen, const int offset)
 {
     if (prepare_isodist_output(isodist, isolen, offset) != 0) {
@@ -184,18 +230,6 @@ float fft_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen
     return maxval;
 }
 
-int nn_rna_mass_to_isolen(const float mass) {
-    if (mass < 24000) {
-        return 32;
-    }
-    if (mass < 65000) {
-        return 64;
-    }
-    if (mass < 165000) {
-        return 128;
-    }
-    return -1;
-}
 
 float nn_rna_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
     if (prepare_isodist_output(isodist, isolen, offset) != 0) {
@@ -368,4 +402,82 @@ float nn_rna_seq_to_dist_custom(const char* seq, float* isodist, const int isole
     float vector[4] = {0};
     rna_seq_to_vector(seq, vector);
     return isogen_model_to_dist_from_file(vector, 4, isodist, isolen, offset, model_path);
+}
+
+//BRAIN
+float brain_rna_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset) {
+    int* brain_list = (int*)calloc(5, sizeof(int));
+    rna_mass_to_list(mass, brain_list);
+
+    int brain_isolen = fft_rna_mass_to_isolen(mass);
+
+    float* brain_isodist = (float*)calloc(brain_isolen, sizeof(float));
+
+    float max_val = brain_list_to_dist(brain_list, brain_isolen, brain_isodist);
+
+    if (brain_isolen < isolen) {
+        for (int i = brain_isolen - offset - 1; i >= 0; i--) {
+            isodist[i+offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+    else {
+        for (int i = isolen - offset - 1; i >= 0; i--) {
+            isodist[i + offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+
+    free(brain_isodist);
+    free(brain_list);
+
+    if (max_val > 0.0f) {
+        for (int i = 0; i < isolen; i++) {
+            isodist[i] /= max_val;
+        }
+    }
+
+    return max_val;
+}
+
+//BRAIN
+float brain_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen, const int offset) {
+    int* formulalist = (int*)calloc(5, sizeof(int));
+    // Check for null
+    if (formulalist == NULL)
+    {
+        printf("Error: Could not allocate memory for formulalist\n");
+        return 1;
+    }
+    int len = rna_seq_to_fftlist(sequence, formulalist);
+
+    int brain_isolen = fft_rna_len_to_isolen(len);
+
+    float* brain_isodist = (float*)calloc(brain_isolen, sizeof(float));
+
+    float maxval = brain_list_to_dist(formulalist, brain_isolen, brain_isodist);
+
+    if (brain_isolen < isolen) {
+        for (int i = brain_isolen - offset - 1; i >= 0; i--) {
+            isodist[i+offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+    else {
+        for (int i = isolen - offset - 1; i >= 0; i--) {
+            isodist[i + offset] = brain_isodist[i];
+            if (i < offset) { isodist[i] = 0.0f; }
+        }
+    }
+
+    free(brain_isodist);
+    free(formulalist);
+
+    if (maxval > 0.0f) {
+        for (int i = 0; i < isolen; i++) {
+            isodist[i] /= maxval;
+        }
+    }
+
+    return maxval;
 }

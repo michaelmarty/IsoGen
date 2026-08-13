@@ -35,4 +35,7 @@ ISOGENPEP_EXPORTS float nn_pep_mass_to_dist_custom(float mass, float* isodist, i
 ISOGENPEP_EXPORTS int nn_pep_mass_to_isolen(float mass);
 ISOGENPEP_EXPORTS int fft_pep_mass_to_isolen(float mass);
 ISOGENPEP_EXPORTS void run_file(const char* filename);
+ISOGENPEP_EXPORTS float nn_pep_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset);
+ISOGENPEP_EXPORTS float brain_pep_mass_to_dist(const float mass, float* isodist, const int isolen, const int offset);
+ISOGENPEP_EXPORTS float brain_pep_seq_to_dist(const char* sequence, float* isodist, int isolen, int offset);
 #endif
