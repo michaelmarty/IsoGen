@@ -35,6 +35,14 @@ def _configure_native_functions():
     ]
     isogen_c_lib.normalize_isodist.restype = ctypes.c_double
 
+    isogen_c_lib.complex_power.argtypes = [
+        ctypes.c_double * 2,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+    ]
+    isogen_c_lib.complex_power.restype = None
+
 
 _configure_native_functions()
 
@@ -78,6 +86,25 @@ def test_normalization_excludes_clamped_negative_values_from_sum():
     assert list(values) == pytest.approx([0.8 / 1.1, 0.3 / 1.1, 0.0])
     assert sum(values) == pytest.approx(1.0)
     assert maximum == pytest.approx(0.8 / 1.1)
+
+
+@pytest.mark.parametrize("power", [-7, -1, 0, 1, 2, 17, 10_000])
+def test_complex_integer_power_matches_reference(power):
+    value = 0.73 - 0.19j
+    native_value = (ctypes.c_double * 2)(value.real, value.imag)
+    result_real = ctypes.c_double()
+    result_imag = ctypes.c_double()
+
+    isogen_c_lib.complex_power(
+        native_value,
+        power,
+        ctypes.byref(result_real),
+        ctypes.byref(result_imag),
+    )
+
+    expected = value**power
+    assert result_real.value == pytest.approx(expected.real, rel=1e-12, abs=1e-15)
+    assert result_imag.value == pytest.approx(expected.imag, rel=1e-12, abs=1e-15)
 
 
 @pytest.mark.parametrize(

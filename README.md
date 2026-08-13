@@ -290,13 +290,21 @@ If you have any questions, please email mtmarty@utexas.edu or open a ticket on G
 
 ### 1.0.3
 
-- Added the BRAIN polynomial-recurrence isotope calculation for peptide, RNA,
-  and DNA sequence and neutral-mass inputs.
-- Added `method="BRAIN"` to the Python API and command-line interface.
-- Added side-by-side FFT, NN, and BRAIN protein-sequence example plots.
-- Added runtime-dispatched AVX2/FMA neural-network acceleration on supported
-  x86 processors, with a portable scalar fallback.
-- Improved native normalization and large-input regression coverage.
+Added the BRAIN polynomial-recurrence isotope calculation for peptide, RNA,
+  and DNA sequence and neutral-mass inputs. 
+
+Added `method="BRAIN"` to the Python API and command-line interface. 
+
+Dramatically improved BRAIN performance by about double using some computational tricks the AI found.
+
+Added side-by-side FFT, NN, and BRAIN protein-sequence example plots. 
+
+Added runtime-dispatched AVX2/FMA neural-network acceleration on supported
+  x86 processors, with a portable scalar fallback. 
+
+Improved native normalization and large-input regression coverage.
+
+Added a timing test script for internal use.
 
 ### 1.0.2
 

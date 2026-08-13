@@ -141,6 +141,39 @@ def test_peptide_masses_match_pyteomics():
     )
 
 
+@pytest.mark.parametrize(
+    ("mass_function", "sequence", "cleaned_sequence"),
+    [
+        (isogen.calc_pep_mass, "PEPXIDE", "PEPIDE"),
+        (isogen.calc_pep_monoisotopic_mass, "PEPXIDE", "PEPIDE"),
+        (isogen.calc_rna_mass, "AUGX", "AUG"),
+        (isogen.calc_rna_monoisotopic_mass, "AUGX", "AUG"),
+        (isogen.calc_dna_mass, "ATGX", "ATG"),
+        (isogen.calc_dna_monoisotopic_mass, "ATGX", "ATG"),
+    ],
+)
+def test_bad_residue_codes_are_zero_and_quiet_by_default(
+    mass_function, sequence, cleaned_sequence, capsys
+):
+    """Invalid residues should contribute zero without stopping processing."""
+    assert mass_function(sequence) == mass_function(cleaned_sequence)
+    assert capsys.readouterr().out == ""
+
+    mass_function(sequence, verbose=True)
+    assert "Bad" in capsys.readouterr().out
+
+
+def test_rna_t_as_u_notice_is_opt_in(capsys):
+    """RNA accepts thymine silently unless verbose output is requested."""
+    observed = isogen.calc_rna_monoisotopic_mass("AT")
+    expected = isogen.calc_rna_monoisotopic_mass("AU")
+    assert observed == expected
+    assert capsys.readouterr().out == ""
+
+    isogen.calc_rna_monoisotopic_mass("AT", verbose=True)
+    assert "Assuming T means U" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("ion_type", ["a", "b", "c", "x", "y", "z"])
 def test_peptide_fragment_masses_match_pyteomics(ion_type):
     """Neutral a/b/c/x/y/z fragment masses should match Pyteomics."""

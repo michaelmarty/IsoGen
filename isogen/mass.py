@@ -97,76 +97,92 @@ pep_ion_mass_shifts_monoisotopic = {
 }
 
 
-def get_aa_mass(letter):
+def get_aa_mass(letter, verbose=False):
     """Return the average residue mass for a one-letter amino-acid code.
 
-    Whitespace and unknown codes contribute zero mass; unknown codes are also
-    reported to standard output.
+    Unknown codes contribute zero mass and are reported only when
+    ``verbose=True``.
     """
-    if letter == " " or letter == "\t" or letter == "\n":
-        return 0
-
     try:
         return aa_masses[letter]
-    except Exception as exception:
-        print("Bad Amino Acid Code:", letter)
-        return 0
+    except (KeyError, TypeError):
+        if verbose:
+            print(f"Bad amino-acid code: {letter!r}")
+        return 0.0
 
 
-def get_rna_mass(letter):
+def get_rna_mass(letter, verbose=False):
     """Return the average RNA residue mass for a nucleotide code.
 
-    ``T`` is accepted as uracil. Unknown codes contribute zero mass.
+    ``T`` is accepted as uracil. Set ``verbose=True`` to report that
+    substitution.
+
+    Unknown codes contribute zero mass and are reported only when
+    ``verbose=True``.
     """
-    if letter == "T":
+    if letter == "T" and verbose:
         print("Assuming T means U")
 
     try:
         return rna_masses[letter]
-    except Exception as exception:
-        print("Bad RNA Code:", letter)
-        return 0
+    except (KeyError, TypeError):
+        if verbose:
+            print(f"Bad RNA code: {letter!r}")
+        return 0.0
 
 
-def get_dna_mass(letter):
+def get_dna_mass(letter, verbose=False):
     """Return the average DNA residue mass for a nucleotide code.
 
-    ``U`` is accepted as thymine. Unknown codes contribute zero mass.
+    ``U`` is accepted as thymine.
+
+    Unknown codes contribute zero mass and are reported only when
+    ``verbose=True``.
     """
     try:
         return dna_masses[letter]
-    except Exception as exception:
-        print("Bad DNA Code:", letter)
-        return 0
+    except (KeyError, TypeError):
+        if verbose:
+            print(f"Bad DNA code: {letter!r}")
+        return 0.0
 
 
-def _get_monoisotopic_mass(letter, masses, molecule_name):
+def _get_monoisotopic_mass(
+    letter, masses, molecule_name, verbose=False
+):
     """Look up a monoisotopic residue mass with shared error handling."""
-    if letter == " " or letter == "\t" or letter == "\n":
-        return 0
-
     try:
         return masses[letter]
-    except KeyError:
-        print("Bad " + molecule_name + " Code:", letter)
-        return 0
+    except (KeyError, TypeError):
+        if verbose:
+            print(f"Bad {molecule_name.lower()} code: {letter!r}")
+        return 0.0
 
 
-def get_aa_monoisotopic_mass(letter):
+def get_aa_monoisotopic_mass(letter, verbose=False):
     """Return the monoisotopic residue mass for an amino-acid code."""
-    return _get_monoisotopic_mass(letter, aa_masses_monoisotopic, "Amino Acid")
+    return _get_monoisotopic_mass(
+        letter, aa_masses_monoisotopic, "Amino Acid", verbose=verbose
+    )
 
 
-def get_rna_monoisotopic_mass(letter):
-    """Return an RNA residue's monoisotopic mass, treating ``T`` as ``U``."""
-    if letter == "T":
+def get_rna_monoisotopic_mass(letter, verbose=False):
+    """Return an RNA residue mass, treating ``T`` as ``U``.
+
+    Set ``verbose=True`` to report the substitution.
+    """
+    if letter == "T" and verbose:
         print("Assuming T means U")
-    return _get_monoisotopic_mass(letter, rna_masses_monoisotopic, "RNA")
+    return _get_monoisotopic_mass(
+        letter, rna_masses_monoisotopic, "RNA", verbose=verbose
+    )
 
 
-def get_dna_monoisotopic_mass(letter):
+def get_dna_monoisotopic_mass(letter, verbose=False):
     """Return a DNA residue's monoisotopic mass, treating ``U`` as ``T``."""
-    return _get_monoisotopic_mass(letter, dna_masses_monoisotopic, "DNA")
+    return _get_monoisotopic_mass(
+        letter, dna_masses_monoisotopic, "DNA", verbose=verbose
+    )
 
 
 def get_pep_ion_mass_shift(ion_type="H2O", monoisotopic=False):
@@ -201,7 +217,7 @@ def get_pep_ion_mass_shift(ion_type="H2O", monoisotopic=False):
 
 
 def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False, pyroglu=False, round_to=2,
-                  ion_type="H2O"):
+                  ion_type="H2O", verbose=False):
     """Calculate an average protein or protein-fragment mass.
 
     Args:
@@ -214,6 +230,7 @@ def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False
         round_to: Number of decimal places in the returned value.
         ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z for a supplied
             N- or C-terminal fragment sequence.
+        verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
         Average neutral mass in daltons.
@@ -235,11 +252,11 @@ def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False
             mass = float(sequence)
         except (TypeError, ValueError):
             seq = sequence.upper()
-            mass = np.sum([get_aa_mass(s) for s in seq])
+            mass = np.sum([get_aa_mass(s, verbose=verbose) for s in seq])
             mass += get_pep_ion_mass_shift(ion_type)
     else:
         seq = sequence.upper()
-        mass = np.sum([get_aa_mass(s) for s in seq])
+        mass = np.sum([get_aa_mass(s, verbose=verbose) for s in seq])
         mass += get_pep_ion_mass_shift(ion_type)
     # print(sequence, mass)
     # Look for pyroglutamate mod if set
@@ -254,7 +271,7 @@ def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False
 
 
 def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False, pyroglu=False,
-                               ion_type="H2O"):
+                               ion_type="H2O", verbose=False):
     """Calculate a monoisotopic protein or protein-fragment mass.
 
     Args:
@@ -266,6 +283,7 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
             glutamine.
         ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z for a supplied
             N- or C-terminal fragment sequence.
+        verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
         Monoisotopic neutral mass in daltons.
@@ -279,11 +297,15 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
             mass = float(sequence)
         except (TypeError, ValueError):
             seq = sequence.upper()
-            mass = np.sum([get_aa_monoisotopic_mass(s) for s in seq])
+            mass = np.sum(
+                [get_aa_monoisotopic_mass(s, verbose=verbose) for s in seq]
+            )
             mass += get_pep_ion_mass_shift(ion_type, monoisotopic=True)
     else:
         seq = sequence.upper()
-        mass = np.sum([get_aa_monoisotopic_mass(s) for s in seq])
+        mass = np.sum(
+            [get_aa_monoisotopic_mass(s, verbose=verbose) for s in seq]
+        )
         mass += get_pep_ion_mass_shift(ion_type, monoisotopic=True)
 
     modmass = 0.0
@@ -299,7 +321,7 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
     return float(mass + modmass)
 
 
-def calc_rna_mass(sequence, threeend="OH", fiveend="MP"):
+def calc_rna_mass(sequence, threeend="OH", fiveend="MP", verbose=False):
     """Calculate the average neutral mass of an RNA sequence.
 
     Args:
@@ -307,12 +329,14 @@ def calc_rna_mass(sequence, threeend="OH", fiveend="MP"):
         threeend: Three-prime terminus, currently ``OH`` or no adjustment.
         fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
             triphosphate (``TP``).
+        verbose: Print a notice when ``T`` is interpreted as ``U``. Defaults
+            to ``False``.
 
     Returns:
         Average neutral mass in daltons.
     """
     seq = sequence.upper()
-    mass = np.sum([get_rna_mass(s) for s in seq])
+    mass = np.sum([get_rna_mass(s, verbose=verbose) for s in seq])
     if threeend == "OH":
         mass += mass_OH
 
@@ -327,7 +351,9 @@ def calc_rna_mass(sequence, threeend="OH", fiveend="MP"):
     return float(mass)
 
 
-def calc_rna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
+def calc_rna_monoisotopic_mass(
+    sequence, threeend="OH", fiveend="MP", verbose=False
+):
     """Calculate the monoisotopic neutral mass of an RNA sequence.
 
     Args:
@@ -335,12 +361,16 @@ def calc_rna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
         threeend: Three-prime terminus, currently ``OH`` or no adjustment.
         fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
             triphosphate (``TP``).
+        verbose: Print a notice when ``T`` is interpreted as ``U``. Defaults
+            to ``False``.
 
     Returns:
         Monoisotopic neutral mass in daltons.
     """
     seq = sequence.upper()
-    mass = np.sum([get_rna_monoisotopic_mass(s) for s in seq])
+    mass = np.sum(
+        [get_rna_monoisotopic_mass(s, verbose=verbose) for s in seq]
+    )
     if threeend == "OH":
         mass += mass_OH_monoisotopic
 
@@ -355,7 +385,7 @@ def calc_rna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
     return float(mass)
 
 
-def calc_dna_mass(sequence, threeend="OH", fiveend="MP"):
+def calc_dna_mass(sequence, threeend="OH", fiveend="MP", verbose=False):
     """Calculate the average neutral mass of a DNA sequence.
 
     Args:
@@ -363,12 +393,13 @@ def calc_dna_mass(sequence, threeend="OH", fiveend="MP"):
         threeend: Three-prime terminus, currently ``OH`` or no adjustment.
         fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
             triphosphate (``TP``).
+        verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
         Average neutral mass in daltons.
     """
     seq = sequence.upper()
-    mass = np.sum([get_dna_mass(s) for s in seq])
+    mass = np.sum([get_dna_mass(s, verbose=verbose) for s in seq])
     if threeend == "OH":
         mass += mass_OH
 
@@ -383,7 +414,9 @@ def calc_dna_mass(sequence, threeend="OH", fiveend="MP"):
     return float(mass)
 
 
-def calc_dna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
+def calc_dna_monoisotopic_mass(
+    sequence, threeend="OH", fiveend="MP", verbose=False
+):
     """Calculate the monoisotopic neutral mass of a DNA sequence.
 
     Args:
@@ -391,12 +424,15 @@ def calc_dna_monoisotopic_mass(sequence, threeend="OH", fiveend="MP"):
         threeend: Three-prime terminus, currently ``OH`` or no adjustment.
         fiveend: Five-prime terminus: ``OH``, monophosphate (``MP``), or
             triphosphate (``TP``).
+        verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
         Monoisotopic neutral mass in daltons.
     """
     seq = sequence.upper()
-    mass = np.sum([get_dna_monoisotopic_mass(s) for s in seq])
+    mass = np.sum(
+        [get_dna_monoisotopic_mass(s, verbose=verbose) for s in seq]
+    )
     if threeend == "OH":
         mass += mass_OH_monoisotopic
 
@@ -468,7 +504,14 @@ def calc_pep_mass_axis(sequence, isolen=128, isotope_spacing=1.0033, ion_type="H
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 
-def calc_rna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="OH", fiveend="MP"):
+def calc_rna_mass_axis(
+    sequence,
+    isolen=128,
+    isotope_spacing=1.0027,
+    threeend="OH",
+    fiveend="MP",
+    verbose=False,
+):
     """Create an RNA mass axis from a sequence and terminal chemistry.
 
     Args:
@@ -477,16 +520,30 @@ def calc_rna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="O
         isotope_spacing: Difference between adjacent isotope masses.
         threeend: Three-prime terminal chemistry.
         fiveend: Five-prime terminal chemistry.
+        verbose: Print a notice when ``T`` is interpreted as ``U``. Defaults
+            to ``False``.
 
     Returns:
         A one-dimensional float NumPy array beginning at the RNA
         monoisotopic mass.
     """
-    monoisotopic_mass = calc_rna_monoisotopic_mass(sequence, threeend=threeend, fiveend=fiveend)
+    monoisotopic_mass = calc_rna_monoisotopic_mass(
+        sequence,
+        threeend=threeend,
+        fiveend=fiveend,
+        verbose=verbose,
+    )
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 
-def calc_dna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="OH", fiveend="MP"):
+def calc_dna_mass_axis(
+    sequence,
+    isolen=128,
+    isotope_spacing=1.0027,
+    threeend="OH",
+    fiveend="MP",
+    verbose=False,
+):
     """Create a DNA mass axis from a sequence and terminal chemistry.
 
     Args:
@@ -495,12 +552,18 @@ def calc_dna_mass_axis(sequence, isolen=128, isotope_spacing=1.0027, threeend="O
         isotope_spacing: Difference between adjacent isotope masses.
         threeend: Three-prime terminal chemistry.
         fiveend: Five-prime terminal chemistry.
+        verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
         A one-dimensional float NumPy array beginning at the DNA
         monoisotopic mass.
     """
-    monoisotopic_mass = calc_dna_monoisotopic_mass(sequence, threeend=threeend, fiveend=fiveend)
+    monoisotopic_mass = calc_dna_monoisotopic_mass(
+        sequence,
+        threeend=threeend,
+        fiveend=fiveend,
+        verbose=verbose,
+    )
     return calc_mass_axis(monoisotopic_mass, isolen, isotope_spacing=isotope_spacing)
 
 

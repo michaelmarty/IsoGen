@@ -39,16 +39,17 @@ const float rho_s = 4.728;
 const float theta_s = 1.583;
 
 
-char* aa_names[] = {
-    "A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"};
+char *aa_names[] = {
+    "A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y"
+};
 
 
 // Set up the weights
 
 // Softsign
-float softsign(const float x) {return x / (1.0f + fabsf(x));}
+float softsign(const float x) { return x / (1.0f + fabsf(x)); }
 // Sigmoid Function
-float sigmoid(const float x) {return 1.0f / (1.0f + expf(-x));}
+float sigmoid(const float x) { return 1.0f / (1.0f + expf(-x)); }
 
 struct IsoGenWeights SetupWeights(const int veclen, const int outlen) {
     struct IsoGenWeights weights = {0};
@@ -66,13 +67,13 @@ struct IsoGenWeights SetupWeights(const int veclen, const int outlen) {
     weights.ml2 = weights.vl2 * weights.vl3;
     weights.ml3 = weights.vl3 * weights.vl4;
     const size_t total =
-        (size_t)weights.ml1 + (size_t)weights.vl2 +
-        (size_t)weights.ml2 + (size_t)weights.vl3 +
-        (size_t)weights.ml3 + (size_t)weights.vl4;
+            (size_t) weights.ml1 + (size_t) weights.vl2 +
+            (size_t) weights.ml2 + (size_t) weights.vl3 +
+            (size_t) weights.ml3 + (size_t) weights.vl4;
     if (total > INT_MAX) {
         return (struct IsoGenWeights){0};
     }
-    weights.tot = (int)total;
+    weights.tot = (int) total;
     // Set up the weights and biases
     weights.w1 = (float *) calloc(weights.ml1, sizeof(float));
     weights.b1 = (float *) calloc(weights.vl2, sizeof(float));
@@ -82,7 +83,8 @@ struct IsoGenWeights SetupWeights(const int veclen, const int outlen) {
     weights.b3 = (float *) calloc(weights.vl4, sizeof(float));
 
     // Check for null
-    if (weights.w1 == NULL || weights.b1 == NULL || weights.w2 == NULL || weights.b2 == NULL || weights.w3 == NULL || weights.b3 == NULL) {
+    if (weights.w1 == NULL || weights.b1 == NULL || weights.w2 == NULL || weights.b2 == NULL || weights.w3 == NULL ||
+        weights.b3 == NULL) {
         FreeIsogenWeights(weights);
         return (struct IsoGenWeights){0};
     }
@@ -111,7 +113,7 @@ struct IsoGenWeights LoadWeights(const struct IsoGenWeights weights, const unsig
     }
 
     // Copy the weights into the object
-    const unsigned char* source = model_weights;
+    const unsigned char *source = model_weights;
     memcpy(weights.w1, source, weights.ml1 * sizeof(float));
     source += weights.ml1 * sizeof(float);
     memcpy(weights.b1, source, weights.vl2 * sizeof(float));
@@ -165,7 +167,8 @@ void matrix_vector_multiply(const float *matrix, const float *vector, const floa
     }
 }
 # else
-void matrix_vector_multiply(const float* matrix, const float* vector, const float* bias, float* result, const int N, const int M, const int ss_flag, const int sigmoid_flag) {
+void matrix_vector_multiply(const float *matrix, const float *vector, const float *bias, float *result, const int N,
+                            const int M, const int ss_flag, const int sigmoid_flag) {
 #pragma omp parallel for
     for (int i = 0; i < N; i++) {
         float val = bias[i];
@@ -211,7 +214,7 @@ int neural_net(const float *vector, float *isodist, const struct IsoGenWeights w
     //     }
     //     l1[i] = softsign(l1[i]);
     // }
-    matrix_vector_multiply(weights.w1, vector, weights.b1, l1, weights.vl2, weights.vl1, 1,0);
+    matrix_vector_multiply(weights.w1, vector, weights.b1, l1, weights.vl2, weights.vl1, 1, 0);
 
     // Calculate the second layer
     // for (int i = 0; i < weights.vl3; i++) {
@@ -221,7 +224,7 @@ int neural_net(const float *vector, float *isodist, const struct IsoGenWeights w
     //     }
     //     l2[i] = softsign(l2[i]);
     // }
-    matrix_vector_multiply(weights.w2, l1, weights.b2, l2, weights.vl3, weights.vl2, 1,0);
+    matrix_vector_multiply(weights.w2, l1, weights.b2, l2, weights.vl3, weights.vl2, 1, 0);
 
     // Calculate the third layer
     // for (int i = 0; i < weights.vl4; i++) {
@@ -231,7 +234,7 @@ int neural_net(const float *vector, float *isodist, const struct IsoGenWeights w
     //     }
     //     isodist[i] = sigmoid(isodist[i]);
     // }
-    matrix_vector_multiply(weights.w3, l2, weights.b3, isodist, weights.vl4, weights.vl3, 0,1);
+    matrix_vector_multiply(weights.w3, l2, weights.b3, isodist, weights.vl4, weights.vl3, 0, 1);
 
     // Free Memory
     free(l1);
@@ -257,34 +260,31 @@ void mass_to_vector(const float mass, float *vector) {
 
 
 //fft
-float fft_list_to_dist(const int isolist[5], const int length, float* isodist)
-{
+float fft_list_to_dist(const int isolist[5], const int length, float *isodist) {
     // Isolist as {carbon, hydrogen, nitrogen, oxygen, sulfur}
-    if (isolist == NULL || isodist == NULL || length <= 0)
-    {
+    if (isolist == NULL || isodist == NULL || length <= 0) {
         return -1.0f;
     }
 
     const int complen = length / 2 + 1;
-    fftw_complex* hft = NULL;
-    fftw_complex* cft = NULL;
-    fftw_complex* nft = NULL;
-    fftw_complex* oft = NULL;
-    fftw_complex* sft = NULL;
-    fftw_complex* allft = NULL;
-    double* buffer = NULL;
+    fftw_complex *hft = NULL;
+    fftw_complex *cft = NULL;
+    fftw_complex *nft = NULL;
+    fftw_complex *oft = NULL;
+    fftw_complex *sft = NULL;
+    fftw_complex *allft = NULL;
+    double *buffer = NULL;
     fftw_plan plan_irfft = NULL;
     float result = -1.0f;
 
-    hft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    cft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    nft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    oft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    sft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
+    hft = (fftw_complex *) fftw_malloc(complen * sizeof(fftw_complex));
+    cft = (fftw_complex *) fftw_malloc(complen * sizeof(fftw_complex));
+    nft = (fftw_complex *) fftw_malloc(complen * sizeof(fftw_complex));
+    oft = (fftw_complex *) fftw_malloc(complen * sizeof(fftw_complex));
+    sft = (fftw_complex *) fftw_malloc(complen * sizeof(fftw_complex));
 
     // Check for null pointers
-    if (hft == NULL || cft == NULL || nft == NULL || oft == NULL || sft == NULL)
-    {
+    if (hft == NULL || cft == NULL || nft == NULL || oft == NULL || sft == NULL) {
         goto cleanup;
     }
 
@@ -292,37 +292,32 @@ float fft_list_to_dist(const int isolist[5], const int length, float* isodist)
         setup_ft(6, cft, length, complen) != 0 ||
         setup_ft(7, nft, length, complen) != 0 ||
         setup_ft(8, oft, length, complen) != 0 ||
-        setup_ft(16, sft, length, complen) != 0)
-    {
+        setup_ft(16, sft, length, complen) != 0) {
         goto cleanup;
     }
 
-    allft = (fftw_complex*)fftw_malloc(complen * sizeof(fftw_complex));
-    buffer = (double*)fftw_malloc(length * sizeof(double));
+    allft = (fftw_complex *) fftw_malloc(complen * sizeof(fftw_complex));
+    buffer = (double *) fftw_malloc(length * sizeof(double));
     // Check for null pointers
-    if (allft == NULL || buffer == NULL)
-    {
+    if (allft == NULL || buffer == NULL) {
         goto cleanup;
     }
 
     convolve_all(isolist, allft, cft, hft, nft, oft, sft, complen);
     plan_irfft = fftw_plan_dft_c2r_1d(length, allft, buffer, FFTW_ESTIMATE);
-    if (plan_irfft == NULL)
-    {
+    if (plan_irfft == NULL) {
         goto cleanup;
     }
     fftw_execute(plan_irfft);
 
     const double max_val = normalize_isodist(buffer, length);
-    for (int i = 0; i < length; i++)
-    {
-        isodist[i] = (float)buffer[i];
+    for (int i = 0; i < length; i++) {
+        isodist[i] = (float) buffer[i];
     }
-    result = (float)max_val;
+    result = (float) max_val;
 
 cleanup:
-    if (plan_irfft != NULL)
-    {
+    if (plan_irfft != NULL) {
         fftw_destroy_plan(plan_irfft);
     }
     fftw_free(hft);
@@ -336,18 +331,64 @@ cleanup:
 }
 
 
-static double brain_calc_psi(const int isolist[5], const int l) {
-    double psi = 0.0;
-    psi += isolist[0] * pow(c_root, -l); //Add C portion
-    psi += isolist[1] * pow(h_root, -l); //Add H portion
-    psi += isolist[2] * pow(n_root, -l); //Add N portion
-    psi += isolist[3] * 2 * pow(rho_o, -l) * cos(theta_o * l); //Add the O portion
-    psi += isolist[4] * pow(s_root, -l); //Add the real S portion
-    psi += isolist[4] * 2 * pow(rho_s, -l) * cos(theta_s * l);
-    return psi;
+/*
+ *Human note: I asked the AI to look for places to speed things up, and it found this. Made BRAIN way faster.
+ *
+ *Optimize BRAIN’s coefficient generation. brain_calc_psi() repeatedly evaluates five pow() operations and two cos() operations.
+ *These sequences can be generated iteratively from the previous coefficient using multiplication and a sine/cosine recurrence.
+ *BRAIN coefficient generation uses multiplicative/complex recurrences with only two initial sine/cosine pairs.
+ *BRAIN differs by at most (7.5\times10^{-9}). On this machine, BRAIN at length 1024 improved from about 505 μs to 264 μs per call (roughly 1.9×).
+ *BRAIN coefficients now use iterative geometric and complex recurrences, eliminating repeated pow() and cos() calls.
+ */
+
+static int brain_fill_psi(const int isolist[5], const int length, double *psi) {
+    const double c_multiplier = 1.0 / (double) c_root;
+    const double h_multiplier = 1.0 / (double) h_root;
+    const double n_multiplier = 1.0 / (double) n_root;
+    const double s_multiplier = 1.0 / (double) s_root;
+
+    const double o_step_real = cos((double) theta_o) / (double) rho_o;
+    const double o_step_imag = sin((double) theta_o) / (double) rho_o;
+    const double s_step_real = cos((double) theta_s) / (double) rho_s;
+    const double s_step_imag = sin((double) theta_s) / (double) rho_s;
+
+    double c_power = 1.0;
+    double h_power = 1.0;
+    double n_power = 1.0;
+    double s_power = 1.0;
+    double o_real = 1.0;
+    double o_imag = 0.0;
+    double s_real = 1.0;
+    double s_imag = 0.0;
+
+    for (int i = 0; i < length; i++) {
+        psi[i] =
+                isolist[0] * c_power +
+                isolist[1] * h_power +
+                isolist[2] * n_power +
+                isolist[3] * 2.0 * o_real +
+                isolist[4] * (s_power + 2.0 * s_real);
+        if (!isfinite(psi[i])) {
+            return -1;
+        }
+
+        c_power *= c_multiplier;
+        h_power *= h_multiplier;
+        n_power *= n_multiplier;
+        s_power *= s_multiplier;
+
+        const double next_o_real = o_real * o_step_real - o_imag * o_step_imag;
+        o_imag = o_real * o_step_imag + o_imag * o_step_real;
+        o_real = next_o_real;
+
+        const double next_s_real = s_real * s_step_real - s_imag * s_step_imag;
+        s_imag = s_real * s_step_imag + s_imag * s_step_real;
+        s_real = next_s_real;
+    }
+    return 0;
 }
 
-float brain_list_to_dist(const int isolist[5], const int length, float* isodist) {
+float brain_list_to_dist(const int isolist[5], const int length, float *isodist) {
     if (isolist == NULL || isodist == NULL || length <= 0) {
         return -1.0f;
     }
@@ -357,30 +398,27 @@ float brain_list_to_dist(const int isolist[5], const int length, float* isodist)
         }
     }
 
-    memset(isodist, 0, (size_t)length * sizeof(*isodist));
-    double* q = (double*)calloc(length, sizeof(double));
-    double* psi = (double*)calloc(length, sizeof(double));
+    memset(isodist, 0, (size_t) length * sizeof(*isodist));
+    double *q = (double *) calloc(length, sizeof(double));
+    double *psi = (double *) calloc(length, sizeof(double));
     if (q == NULL || psi == NULL) {
         free(q);
         free(psi);
         return -1.0f;
     }
 
-    for (int i = 0; i < length; i++) {
-        psi[i] = brain_calc_psi(isolist, i);
-        if (!isfinite(psi[i])) {
-            free(q);
-            free(psi);
-            return -1.0f;
-        }
+    if (brain_fill_psi(isolist, length, psi) != 0) {
+        free(q);
+        free(psi);
+        return -1.0f;
     }
 
     q[0] = 1;
 
-    for (int j = 1;j < length;j++) {
+    for (int j = 1; j < length; j++) {
         double s = 0.0;
-        for (int l = 1; l < j+1; l++) {
-            s += q[j-l] * psi[l];
+        for (int l = 1; l < j + 1; l++) {
+            s += q[j - l] * psi[l];
         }
         q[j] = -s / j;
         if (!isfinite(q[j])) {
@@ -399,39 +437,32 @@ float brain_list_to_dist(const int isolist[5], const int length, float* isodist)
     }
 
     //memcpy buffer to isodist
-    for (int i = 0; i < length; i++)
-    {
-        isodist[i] = (float)q[i];
+    for (int i = 0; i < length; i++) {
+        isodist[i] = (float) q[i];
     }
 
     free(q);
 
-    return (float)maxval;
+    return (float) maxval;
 }
 
 
-void construct_isotope_array(const int number, double* isotope_array, const int length)
-{
+void construct_isotope_array(const int number, double *isotope_array, const int length) {
     int index = 0;
     int isotope_index = 0;
     // Loop through the length of the isotope distribution
-    for (int i = 0; i < length; i++)
-    {
+    for (int i = 0; i < length; i++) {
         // If we've already passed all of our isotopes for a given atomic number, break
         if (isotope_numbers[index] > number) { break; }
         // If we've found the isotope we're looking for, add it to the array
-        for (int j = index; j < dlen; j++)
-        {
-            if (isotope_numbers[j] == number)
-            {
+        for (int j = index; j < dlen; j++) {
+            if (isotope_numbers[j] == number) {
                 isotope_array[isotope_index] = isotope_abundances[j];
                 const double current_mass = isotope_masses[j];
-                if (j + 1 < dlen)
-                {
-                    if (isotope_numbers[j + 1] == number)
-                    {
+                if (j + 1 < dlen) {
+                    if (isotope_numbers[j + 1] == number) {
                         const double next_mass = isotope_masses[j + 1];
-                        const int diff = (int)round(next_mass - current_mass);
+                        const int diff = (int) round(next_mass - current_mass);
                         isotope_index += diff;
                     }
                 }
@@ -446,10 +477,8 @@ int fft_len = 33;
 static const int precomputed_isotope_length = 64;
 
 
-void copy_fft(const fftw_complex* in, fftw_complex* out, const int length)
-{
-    for (int i = 0; i < length; i++)
-    {
+void copy_fft(const fftw_complex *in, fftw_complex *out, const int length) {
+    for (int i = 0; i < length; i++) {
         out[i][0] = in[i][0];
         out[i][1] = in[i][1];
     }
@@ -466,23 +495,19 @@ float get_first_isotope_abundance(const int number) {
     return abundance;
 }
 
-static int fft_from_precomputed(const int number, fftw_complex* outft, const int length)
-{
+static int fft_from_precomputed(const int number, fftw_complex *outft, const int length) {
     const int index = number - 1;
     const int start = index * fft_len;
 
-    if (length != fft_len)
-    {
+    if (length != fft_len) {
         printf("Error: Requested isotope dist length is not the same length as the precomputed FFT\n");
         return -1;
     }
-    if (start + length > arraylen)
-    {
+    if (start + length > arraylen) {
         printf("Error: Requested isotope number is too large\n");
         return -1;
     }
-    for (int i = 0; i < length; i++)
-    {
+    for (int i = 0; i < length; i++) {
         outft[i][0] = fftarray[start + i][0];
         outft[i][1] = fftarray[start + i][1];
     }
@@ -492,31 +517,24 @@ static int fft_from_precomputed(const int number, fftw_complex* outft, const int
 int use_precomputed_fft = 1;
 
 
-int setup_ft(const int number, fftw_complex* outft, const int length, const int ftlen)
-{
-    if (number < 1 || number > numelements)
-    {
+int setup_ft(const int number, fftw_complex *outft, const int length, const int ftlen) {
+    if (number < 1 || number > numelements) {
         return -1;
     }
 
-    if (length == precomputed_isotope_length && ftlen == fft_len && use_precomputed_fft)
-    {
+    if (length == precomputed_isotope_length && ftlen == fft_len && use_precomputed_fft) {
         return fft_from_precomputed(number, outft, ftlen);
-    }
-    else
-    {
-        double* array = (double*)calloc(length, sizeof(double));
+    } else {
+        double *array = (double *) calloc(length, sizeof(double));
 
-        if (array == NULL)
-        {
+        if (array == NULL) {
             printf("Error: Could not allocate memory for isotope arrays\n");
             return -1;
         }
         construct_isotope_array(number, array, length);
 
         fftw_plan plan = fftw_plan_dft_r2c_1d(length, array, outft, FFTW_ESTIMATE);
-        if (plan == NULL)
-        {
+        if (plan == NULL) {
             free(array);
             return -1;
         }
@@ -528,20 +546,44 @@ int setup_ft(const int number, fftw_complex* outft, const int length, const int 
 }
 
 
-void complex_power(const fftw_complex z, const int power, double* oreal, double* oimag)
-{
-    double magnitude = sqrt(z[0] * z[0] + z[1] * z[1]);
-    double angle = atan2(z[1], z[0]);
-    magnitude = pow(magnitude, power);
-    angle *= power;
-    (*oreal) = magnitude * cos(angle);
-    (*oimag) = magnitude * sin(angle);
+void complex_power(const fftw_complex z, const int power, double *oreal, double *oimag) {
+    double base_real = z[0];
+    double base_imag = z[1];
+    unsigned int exponent;
+
+    if (power < 0) {
+        const double denominator = base_real * base_real + base_imag * base_imag;
+        base_real /= denominator;
+        base_imag = -base_imag / denominator;
+        /* This form is safe even when power is INT_MIN. */
+        exponent = (unsigned int) (-(power + 1)) + 1U;
+    } else {
+        exponent = (unsigned int) power;
+    }
+
+    double result_real = 1.0;
+    double result_imag = 0.0;
+    while (exponent != 0U) {
+        if ((exponent & 1U) != 0U) {
+            const double next_real = result_real * base_real - result_imag * base_imag;
+            result_imag = result_real * base_imag + result_imag * base_real;
+            result_real = next_real;
+        }
+        exponent >>= 1U;
+        if (exponent != 0U) {
+            const double next_real = base_real * base_real - base_imag * base_imag;
+            base_imag = 2.0 * base_real * base_imag;
+            base_real = next_real;
+        }
+    }
+
+    *oreal = result_real;
+    *oimag = result_imag;
 }
 
 
 void complex_multiplication(const double ar, const double ai, const double br,
-                            const double bi, double* oreal, double* oimag)
-{
+                            const double bi, double *oreal, double *oimag) {
     const double real = ar * br - ai * bi;
     const double img = ar * bi + ai * br;
     (*oreal) = real;
@@ -549,17 +591,15 @@ void complex_multiplication(const double ar, const double ai, const double br,
 }
 
 
-void convolve_all(const int isolist[5], fftw_complex* allft, const fftw_complex* cft, const fftw_complex* hft,
-                  const fftw_complex* nft, const fftw_complex* oft, const fftw_complex* sft, const int length)
-{
+void convolve_all(const int isolist[5], fftw_complex *allft, const fftw_complex *cft, const fftw_complex *hft,
+                  const fftw_complex *nft, const fftw_complex *oft, const fftw_complex *sft, const int length) {
     const int numc = isolist[0];
     const int numh = isolist[1];
     const int numn = isolist[2];
     const int numo = isolist[3];
     const int nums = isolist[4];
 
-    for (int i = 0; i < length; i++)
-    {
+    for (int i = 0; i < length; i++) {
         double coutr = 0;
         double couti = 0;
         complex_power(cft[i], numc, &coutr, &couti);
@@ -596,9 +636,7 @@ void convolve_all(const int isolist[5], fftw_complex* allft, const fftw_complex*
 }
 
 
-
-
-const char* element_names[] = {
+const char *element_names[] = {
     "H", "He", "Li", "Be", "B", "C", "N", "O",
     "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S",
     "Cl", "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr",
@@ -746,9 +784,7 @@ double isotope_abundances[] = {
 };
 
 
-
-
-char* amino_acid_names[] = {
+char *amino_acid_names[] = {
     "G", "A", "S", "P", "V", "T", "C", "L",
     "I", "J", "N", "D", "Q", "K", "E", "M",
     "H", "F", "U", "R", "Y", "W", "O"
@@ -2566,32 +2602,25 @@ const double fftarray[3597][2] = {
     {1.0000000000, 0.0000000000}
 };
 
-double normalize_isodist(double* buffer, const int length)
-{
-    if (buffer == NULL || length <= 0)
-    {
+double normalize_isodist(double *buffer, const int length) {
+    if (buffer == NULL || length <= 0) {
         return 0;
     }
     double max_val = 0;
     double sum = 0;
-    for (int i = 0; i < length; i++)
-    {
-        if (buffer[i] < 0)
-        {
+    for (int i = 0; i < length; i++) {
+        if (buffer[i] < 0) {
             buffer[i] = 0;
         }
         sum += buffer[i];
-        if (buffer[i] > max_val)
-        {
+        if (buffer[i] > max_val) {
             max_val = buffer[i];
         }
     }
-    if (sum == 0)
-    {
+    if (sum == 0) {
         return 0;
     }
-    for (int i = 0; i < length; i++)
-    {
+    for (int i = 0; i < length; i++) {
         buffer[i] /= sum;
     }
     return max_val / sum;

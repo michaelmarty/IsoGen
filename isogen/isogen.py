@@ -8,7 +8,7 @@ else:
     import mass
 
 
-def isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs):
+def isodist(input, type="PEPTIDE", isolen=128, method="FFT", dist_only=False, **mass_kwargs):
     """Generate a mass/intensity isotope distribution.
 
     Args:
@@ -29,6 +29,9 @@ def isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs):
     type = type.upper() if isinstance(type, str) else type
     method = method.upper() if isinstance(method, str) else method
     int_dist = wrapper.gen_isodist(input, type=type, isolen=isolen, method=method)
+    if dist_only:
+        return int_dist
+
     mass_axis = mass.gen_mass_axis(input, type=type, isolen=isolen, **mass_kwargs)
     output = np.transpose(np.vstack((mass_axis, int_dist)))
     return output
