@@ -278,6 +278,10 @@ If you have any questions, please email mtmarty@utexas.edu or open a ticket on G
 
 ## CHANGELOG
 
+### 1.0.3
+
+Merging in new features from John Pavek.
+
 ### 1.0.2
 
 Added support for custom models with isogen_custom function and new C bindings for custom models.
