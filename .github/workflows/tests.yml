@@ -9,10 +9,15 @@ permissions:
 
 jobs:
   test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-14
+          - macos-15-intel
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
@@ -26,21 +31,28 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install --yes libfftw3-double3
 
+      - name: Install macOS native dependency
+        if: runner.os == 'macOS'
+        run: brew install fftw
+
       - name: Install package and test dependencies
-        run: python -m pip install -e ".[test]"
+        run: python -m pip install ".[test]"
 
       - name: Verify portable Linux runtime linkage
         if: runner.os == 'Linux'
         shell: bash
+        working-directory: ${{ runner.temp }}
         run: |
-          if readelf --dynamic bin/isogen.so | grep -E 'libstdc\+\+|libgcc_s'; then
-            echo "bin/isogen.so must not depend on the build host's GNU runtime libraries"
+          native_library="$(python -c 'from isogen.isogenwrapper import dllpath; print(dllpath)')"
+          if readelf --dynamic "$native_library" | grep -E 'libstdc\+\+|libgcc_s'; then
+            echo "$native_library must not depend on the build host's GNU runtime libraries"
             exit 1
           fi
-          if readelf --version-info bin/isogen.so | grep -q GLIBCXX_; then
-            echo "bin/isogen.so must not require versioned GLIBCXX symbols"
+          if readelf --version-info "$native_library" | grep -q GLIBCXX_; then
+            echo "$native_library must not require versioned GLIBCXX symbols"
             exit 1
           fi
 
       - name: Run unit tests
-        run: python -m pytest
+        working-directory: ${{ runner.temp }}
+        run: python -m pytest "${{ github.workspace }}/tests" --import-mode=importlib
