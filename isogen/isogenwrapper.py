@@ -2,76 +2,58 @@ import ctypes
 import os
 import numpy as np
 import platform
+from pathlib import Path
 
 
-def find_dll(targetfile, dir):
-    """Recursively locate a native library below a directory.
+_system = platform.system()
+_library_names = {
+    "Windows": "isogen.dll",
+    "Linux": "isogen.so",
+    "Darwin": "isogen.dylib",
+}
 
-    Args:
-        targetfile: Library filename to find.
-        dir: Directory at which to begin the recursive search.
+try:
+    dllname = _library_names[_system]
+except KeyError as error:
+    raise ImportError(
+        f"IsoGen does not support {_system!r} on this installation"
+    ) from error
 
-    Returns:
-        The first matching path, or an empty string when no match is found.
-    """
-    if dir is None:
-        return ""
+_package_dir = Path(__file__).resolve().parent
+current_path = str(_package_dir)
+_packaged_library_path = _package_dir / "bin" / dllname
+_source_library_path = _package_dir.parent / "bin" / dllname
 
-    for entry in os.scandir(dir):
-        if entry.is_file() and entry.name == targetfile:
-            # print("Found DLL within:", entry.path)
-            return entry.path
-
-        elif entry.is_dir():
-            result = find_dll(targetfile, entry.path)
-            if result:
-                return result
-
-    return ""
-
-def start_at_iso(targetfile, guess=None):
-    """Resolve a library from a preferred directory or its system name.
-
-    Args:
-        targetfile: Native library filename.
-        guess: Optional directory to search first.
-
-    Returns:
-        A discovered path, otherwise ``targetfile`` for system lookup.
-    """
-    if guess is not None:
-        if os.path.isdir(guess):
-            result = find_dll(targetfile, guess)
-            if result:
-                return result
-
-    return targetfile
-
-
-current_path = os.path.dirname(os.path.realpath(__file__))
-bin_path = os.path.realpath(os.path.join(current_path, "..", "bin"))
-packaged_bin_path = os.path.join(current_path, "bin")
-
-if platform.system() == "Windows":
-    dllname = "isogen.dll"
-elif platform.system() == "Linux":
-    dllname = "isogen.so"
-
+# The source-tree fallback keeps local development convenient. Installed
+# distributions always load the library shipped inside the package.
+if _packaged_library_path.is_file():
+    _library_path = _packaged_library_path
+elif (
+    (_package_dir.parent / "pyproject.toml").is_file()
+    and _source_library_path.is_file()
+):
+    _library_path = _source_library_path
 else:
-    print("Not yet implemented for MacOS")
-    dllname = "isogen.dylib"
+    raise ImportError(
+        f"IsoGen's native library is missing: {_packaged_library_path}. "
+        "Reinstall pyisogen using a compatible wheel, or install CMake, "
+        "a native compiler, and FFTW before building from source."
+    )
 
+_dll_directory_handle = None
+if _system == "Windows":
+    _dll_directory_handle = os.add_dll_directory(str(_library_path.parent))
 
-dllpath = start_at_iso(dllname, guess=bin_path)
-if dllpath == dllname:
-    dllpath = start_at_iso(dllname, guess=packaged_bin_path)
+try:
+    isogen_c_lib = ctypes.CDLL(str(_library_path))
+except OSError as error:
+    raise ImportError(
+        f"Unable to load IsoGen's native library {_library_path}: {error}"
+    ) from error
 
-if not dllpath:
-    print("DLL not found anywhere:", dllname)
+dllpath = str(_library_path)
 
 isodist = ctypes.c_float * 64
-
-isogen_c_lib = ctypes.CDLL(dllpath)
 
 isogen_c_lib.fft_rna_mass_to_dist.argtypes = [ctypes.c_float, ctypes.POINTER(ctypes.c_float), ctypes.c_int,
                                             ctypes.c_int]

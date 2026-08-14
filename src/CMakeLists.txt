@@ -17,9 +17,6 @@ option(
     ON
 )
 
-get_filename_component(INSTALL_DIR ../bin ABSOLUTE)
-message(STATUS "INSTALL_DIR: ${INSTALL_DIR}")
-
 # Set SRC_DIR to the path of the IsoDec source code
 get_filename_component(SRC_DIR ./ ABSOLUTE)
 message(STATUS "SRC_DIR: ${SRC_DIR}")
@@ -32,10 +29,6 @@ include_directories("${SRC_DIR}")
 include_directories("${FFTW_DIR}")
 
 #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
-set(CMAKE_INSTALL_RPATH ${INSTALL_DIR})
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-
 # ======================== IsoGen Builds ========================
 
 set(ISOGEN_SOURCES
@@ -95,7 +88,12 @@ else()
 endif()
 
 target_link_libraries(isogen PUBLIC fftw3)
-install(TARGETS isogen DESTINATION ${INSTALL_DIR})
+install(
+    TARGETS isogen
+    RUNTIME DESTINATION . COMPONENT Runtime
+    LIBRARY DESTINATION . COMPONENT Runtime
+    ARCHIVE DESTINATION . COMPONENT Development
+)
 
 add_executable(isogen_test isogen_test.cpp)
 target_include_directories(isogen_test PUBLIC ${SRC_DIR})
@@ -110,7 +108,11 @@ if(ISOGEN_STATIC_GNU_RUNTIME AND UNIX AND NOT APPLE AND
     target_link_options(isogen_test PRIVATE -static-libstdc++ -static-libgcc)
 endif()
 
-install(TARGETS isogen_test DESTINATION ${INSTALL_DIR})
+install(
+    TARGETS isogen_test
+    RUNTIME DESTINATION bin
+    COMPONENT Development
+)
 
 
 

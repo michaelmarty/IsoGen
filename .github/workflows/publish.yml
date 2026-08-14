@@ -99,6 +99,53 @@ jobs:
           path: dist/*.whl
           if-no-files-found: error
 
+  wheels-macos:
+    name: Build macOS wheel (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x86_64
+          - runner: macos-14
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install macOS native dependency
+        run: brew install fftw
+
+      - name: Install build tools
+        run: python -m pip install --upgrade build delocate
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Bundle FFTW into macOS wheel
+        run: |
+          mkdir wheelhouse
+          delocate-wheel --require-archs "${{ matrix.arch }}" -w wheelhouse -v dist/*.whl
+          rm dist/*.whl
+          mv wheelhouse/*.whl dist/
+
+      - name: Test macOS wheel
+        run: |
+          python -m venv wheel-test
+          wheel-test/bin/python -m pip install dist/*.whl
+          wheel-test/bin/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
+          wheel-test/bin/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-macOS-${{ matrix.arch }}
+          path: dist/*.whl
+          if-no-files-found: error
+
   sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
@@ -125,7 +172,7 @@ jobs:
   publish:
     name: Publish to PyPI
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to_pypi == 'true')
-    needs: [wheels-windows, wheels-linux, sdist]
+    needs: [wheels-windows, wheels-linux, wheels-macos, sdist]
     runs-on: ubuntu-latest
     environment:
       name: pypi

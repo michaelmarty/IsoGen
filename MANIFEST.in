@@ -4,11 +4,6 @@ include PUBLISHING.md
 include THIRD_PARTY_NOTICES.md
 include pyproject.toml
 include mkdocs.yml
-include setup.py
-include bin/isogen.dll
-include bin/isogen.so
-include bin/libmmd.dll
-include bin/svml_dispmd.dll
 recursive-include docs *.md
 recursive-include isogen/models *.bin *.pth
 recursive-include tests *.py

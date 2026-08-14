@@ -1,16 +1,15 @@
 [build-system]
 requires = [
-    "setuptools>=77",
-    "wheel>=0.45",
+    "scikit-build-core>=0.12",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyisogen"
-dynamic = ["version"]
+version = "1.0.4"
 description = "Fast isotope-distribution calculations for proteins, nucleic acids, and elemental formulas"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.9"
 license = "BSD-3-Clause"
 license-files = [
     "LICENSE",
@@ -35,8 +34,13 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: Microsoft :: Windows :: Windows 10",
     "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Chemistry",
@@ -72,18 +76,29 @@ Repository = "https://github.com/michaelmarty/IsoGen"
 Issues = "https://github.com/michaelmarty/IsoGen/issues"
 Documentation = "https://michaelmarty.github.io/IsoGen/"
 
-[tool.setuptools]
-packages = ["isogen"]
-include-package-data = false
-
-[tool.setuptools.package-data]
-isogen = [
-    "models/*.bin",
-    "models/*.pth",
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.source-dir = "src"
+cmake.version = ">=3.22.1"
+wheel.packages = ["isogen"]
+wheel.install-dir = "isogen/bin"
+wheel.py-api = "py3"
+install.components = ["Runtime"]
+sdist.include = [
+    "src/**",
+    "isogen/**",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
 ]
-
-[tool.setuptools.dynamic]
-version = { attr = "isogen._version.__version__" }
+sdist.exclude = [
+    "bin/**",
+    "setup.py",
+]
+messages.after-failure = """
+IsoGen's native library could not be compiled.
+Install a C/C++ compiler, CMake, and the FFTW development libraries,
+or install a prebuilt wheel for your operating system.
+"""
 
 [tool.pytest.ini_options]
 addopts = "-ra"

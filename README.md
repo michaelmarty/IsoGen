@@ -22,12 +22,20 @@ Install a published wheel from PyPI:
 python -m pip install pyisogen
 ```
 
-IsoGen requires Python 3.13 or newer.
+IsoGen requires Python 3.9 or newer. The native library is loaded through
+`ctypes` and does not depend on a particular CPython minor-version ABI.
 
-Precompiled native libraries are provided for 64-bit Windows and Linux. Linux
-requires the FFTW 3 runtime; published Linux wheels bundle it during the
-manylinux repair step. For other platforms, build the native library from
-source using CMake.
+Published platform wheels include a native library built from the bundled C
+sources for 64-bit Windows, Linux, and macOS (Intel and Apple Silicon). Linux
+and macOS wheels bundle the required FFTW 3 runtime during wheel repair, so a
+compiler, CMake, and a separate FFTW installation are not needed when a
+compatible wheel is available.
+
+If pip cannot find a compatible wheel, it falls back to the source
+distribution and automatically builds the native library with CMake. A source
+build requires a C/C++ compiler, CMake 3.22.1 or newer, and the FFTW 3
+development libraries. Installation stops with a native-build error when
+those prerequisites are unavailable.
 
 ## Usage
 
@@ -287,6 +295,20 @@ If you have any questions, please email mtmarty@utexas.edu or open a ticket on G
 
 
 ## CHANGELOG
+
+### 1.0.4
+
+Moved native-library packaging to scikit-build-core so Windows, Linux, and
+macOS wheels compile the bundled C sources automatically with CMake.
+
+Added native macOS wheels for Intel and Apple Silicon, including bundled FFTW
+runtime dependencies.
+
+Expanded Python compatibility from Python 3.13-only to Python 3.9 and newer.
+
+Added automatic native compilation when pip falls back to the source
+distribution, with clearer errors for missing build prerequisites or runtime
+libraries.
 
 ### 1.0.3
 
