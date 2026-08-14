@@ -40,9 +40,10 @@ jobs:
 
       - name: Test Windows wheel
         shell: pwsh
+        working-directory: ${{ runner.temp }}
         run: |
           python -m venv wheel-test
-          $wheel = (Get-ChildItem dist/*.whl).FullName
+          $wheel = (Get-ChildItem '${{ github.workspace }}\dist\*.whl').FullName
           wheel-test/Scripts/python -m pip install $wheel
           wheel-test/Scripts/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
           wheel-test/Scripts/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
@@ -87,9 +88,10 @@ jobs:
 
       - name: Test Linux wheel
         shell: bash
+        working-directory: ${{ runner.temp }}
         run: |
           python -m venv wheel-test
-          wheel-test/bin/python -m pip install dist/*.whl
+          wheel-test/bin/python -m pip install "${{ github.workspace }}"/dist/*.whl
           wheel-test/bin/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
           wheel-test/bin/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
 
@@ -134,9 +136,10 @@ jobs:
           mv wheelhouse/*.whl dist/
 
       - name: Test macOS wheel
+        working-directory: ${{ runner.temp }}
         run: |
           python -m venv wheel-test
-          wheel-test/bin/python -m pip install dist/*.whl
+          wheel-test/bin/python -m pip install "${{ github.workspace }}"/dist/*.whl
           wheel-test/bin/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
           wheel-test/bin/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
 
