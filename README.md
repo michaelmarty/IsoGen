@@ -312,6 +312,10 @@ python -m pip install -e ".[training]"
 
 ## CHANGELOG
 
+### 1.0.6 
+
+Minor changes to improve versioning and build structure.
+
 ### 1.0.5
 
 Updated citation info.
