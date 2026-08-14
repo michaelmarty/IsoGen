@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_to_pypi:
-        description: 'Publish to PyPI after building?'
+        description: 'Also publish the release artifacts to PyPI?'
         required: true
         default: 'false'
         type: choice
@@ -17,7 +17,43 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  release-metadata:
+    name: Read release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read and validate version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUBLISHED_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(sed -nE 's/^__version__[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' isogen/_version.py)"
+          if [[ -z "$version" ]]; then
+            echo "Could not read __version__ from isogen/_version.py" >&2
+            exit 1
+          fi
+
+          tag="v$version"
+          if [[ "$EVENT_NAME" == "release" && "$PUBLISHED_TAG" != "$tag" ]]; then
+            echo "Release tag '$PUBLISHED_TAG' does not match '$tag' from isogen/_version.py" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   wheels-windows:
     name: Build Windows wheel
     runs-on: windows-latest
@@ -172,10 +208,51 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  github-release:
+    name: Create GitHub release
+    if: github.event_name == 'workflow_dispatch'
+    needs: [release-metadata, wheels-windows, wheels-linux, wheels-macos, sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: "*"
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release and upload artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-metadata.outputs.tag }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release '$RELEASE_TAG' already exists" >&2
+            exit 1
+          fi
+
+          gh release create "$RELEASE_TAG" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG" \
+            --generate-notes
+
   publish:
     name: Publish to PyPI
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to_pypi == 'true')
-    needs: [wheels-windows, wheels-linux, wheels-macos, sdist]
+    if: >-
+      always() &&
+      (github.event_name == 'release' ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_to_pypi == 'true')) &&
+      (github.event_name == 'release' || needs.github-release.result == 'success') &&
+      needs.release-metadata.result == 'success' &&
+      needs.wheels-windows.result == 'success' &&
+      needs.wheels-linux.result == 'success' &&
+      needs.wheels-macos.result == 'success' &&
+      needs.sdist.result == 'success'
+    needs: [release-metadata, wheels-windows, wheels-linux, wheels-macos, sdist, github-release]
     runs-on: ubuntu-latest
     environment:
       name: pypi

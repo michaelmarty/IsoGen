@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyisogen"
-version = "1.0.4"
+dynamic = ["version"]
 description = "Fast isotope-distribution calculations for proteins, nucleic acids, and elemental formulas"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -100,6 +100,11 @@ IsoGen's native library could not be compiled.
 Install a C/C++ compiler, CMake, and the FFTW development libraries,
 or install a prebuilt wheel for your operating system.
 """
+
+[[tool.dynamic-metadata]]
+provider = "scikit_build_core.metadata.regex"
+field = "version"
+input = "isogen/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "-ra"

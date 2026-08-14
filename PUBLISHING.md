@@ -11,7 +11,21 @@ built and tested on their target platforms.
 3. Confirm the native sources and bundled model files are from the intended commit.
 4. Review `THIRD_PARTY_NOTICES.md` and include the exact licenses that apply to
    the FFTW and Intel runtime binaries being distributed.
-5. Commit and tag the release, for example `v0.1.0`.
+5. Commit the release changes and push them to GitHub.
+
+## Publish with GitHub Actions
+
+Run the **Build and publish** workflow from the Actions tab on the commit you
+want to release. The workflow reads the version from `isogen/_version.py`,
+builds and tests all platform wheels plus the source distribution, creates the
+matching `v<version>` tag, and publishes a GitHub release containing those
+artifacts. It fails without changing an existing release if that tag has
+already been released.
+
+Set **Also publish the release artifacts to PyPI?** to `true` to publish the
+same artifacts through PyPI trusted publishing after the GitHub release is
+created. Configure the `pypi` environment and trusted publisher for this
+repository on PyPI before using that option.
 
 ## Build locally
 
@@ -110,7 +124,5 @@ python -m twine upload dist/*
 ```
 
 The GitHub Actions workflow in `.github/workflows/publish.yml` builds Windows,
-Linux, macOS Intel, and macOS Apple Silicon wheels and publishes a GitHub
-release to PyPI through trusted publishing. Configure the `pypi` environment
-and trusted publisher for this repository on PyPI before publishing the first
-release.
+Linux, macOS Intel, and macOS Apple Silicon wheels. A manually dispatched run
+creates the GitHub release and can optionally publish the same files to PyPI.
