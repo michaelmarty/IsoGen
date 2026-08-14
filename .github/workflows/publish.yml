@@ -21,6 +21,12 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  ONEAPI_WINDOWS_URL: https://registrationcenter-download.intel.com/akdlm/IRC_NAS/bae85ab1-cfcd-4251-8d42-a0c27949ea33/intel-oneapi-toolkit-2026.0.0.193_offline.exe
+  ONEAPI_WINDOWS_VERSION: 2026.0.0.193
+  ONEAPI_WINDOWS_COMPONENTS: intel.oneapi.win.cpp-dpcpp-common
+  ONEAPI_WINDOWS_CACHE_VERSION: 1
+
 jobs:
   release-metadata:
     name: Read release metadata
@@ -55,7 +61,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   wheels-windows:
-    name: Build Windows wheel
+    name: Build Windows wheels (MSVC and Intel)
     runs-on: windows-latest
 
     steps:
@@ -69,26 +75,115 @@ jobs:
         run: python -m pip install --upgrade build
 
       - name: Clean previous build output
-        run: python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('build', 'dist', 'wheelhouse')]"
+        run: python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('build', 'dist', 'dist-msvc', 'dist-intel', 'wheelhouse')]"
 
-      - name: Build wheel
-        run: python -m build --wheel
+      - name: Build MSVC comparison wheel
+        run: python -m build --wheel --outdir dist-msvc
 
-      - name: Test Windows wheel
-        shell: pwsh
-        working-directory: ${{ runner.temp }}
+      - name: Cache Intel oneAPI compiler
+        id: cache-oneapi
+        uses: actions/cache@v5
+        with:
+          path: |
+            C:\Program Files (x86)\Intel\oneAPI\setvars-vcvarsall.bat
+            C:\Program Files (x86)\Intel\oneAPI\compiler
+          key: oneapi-windows-cpp-${{ env.ONEAPI_WINDOWS_CACHE_VERSION }}-${{ env.ONEAPI_WINDOWS_VERSION }}-${{ env.ONEAPI_WINDOWS_COMPONENTS }}
+
+      - name: Install Intel oneAPI compiler
+        if: steps.cache-oneapi.outputs.cache-hit != 'true'
+        shell: cmd
         run: |
-          python -m venv wheel-test
-          $wheel = (Get-ChildItem '${{ github.workspace }}\dist\*.whl').FullName
-          wheel-test/Scripts/python -m pip install $wheel
-          wheel-test/Scripts/python -c "import isogen; assert isogen.isodist(1000, isolen=8).shape == (8, 2)"
-          wheel-test/Scripts/python -c "import isogen; assert isogen.isodist('C6H12O6', type='ATOM', isolen=8).shape == (8, 2)"
+          curl.exe --fail --location --retry 5 --retry-delay 5 --output "%RUNNER_TEMP%\oneapi-installer.exe" "%ONEAPI_WINDOWS_URL%"
+          start /b /wait "" "%RUNNER_TEMP%\oneapi-installer.exe" -s -x -f "%RUNNER_TEMP%\oneapi-extracted" --log extract.log
+          "%RUNNER_TEMP%\oneapi-extracted\bootstrapper.exe" -s --action install --components=%ONEAPI_WINDOWS_COMPONENTS% --eula=accept -p=NEED_VS2017_INTEGRATION=0 -p=NEED_VS2019_INTEGRATION=0 -p=NEED_VS2022_INTEGRATION=0 --log-dir=.
+
+      - name: Build Intel oneAPI wheel
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Intel\oneAPI\setvars-vcvarsall.bat" vs2022
+          call "C:\Program Files (x86)\Intel\oneAPI\compiler\latest\env\vars.bat"
+          set "CC=icx-cl"
+          set "CXX=icx-cl"
+          set "CMAKE_GENERATOR=Ninja"
+          set "CMAKE_ARGS=-DISOGEN_REQUIRE_INTELLLVM=ON"
+          where icx-cl
+          icx-cl --version
+          python -m build --wheel --outdir dist-intel
 
       - uses: actions/upload-artifact@v7
         with:
           name: wheel-Windows
-          path: dist/*.whl
+          path: dist-intel/*.whl
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: comparison-wheel-Windows-MSVC
+          path: dist-msvc/*.whl
+          if-no-files-found: error
+
+  compare-windows-compilers:
+    name: Test and compare Windows wheels
+    needs: wheels-windows
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-Windows
+          path: wheels/intel
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: comparison-wheel-Windows-MSVC
+          path: wheels/msvc
+
+      - name: Test MSVC wheel
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv "${{ runner.temp }}\msvc-test"
+          $python = "${{ runner.temp }}\msvc-test\Scripts\python.exe"
+          $wheel = (Get-ChildItem '${{ github.workspace }}\wheels\msvc\*.whl').FullName
+          & $python -m pip install $wheel "pytest>=8" "pyteomics>=4.7"
+          & $python -m pytest '${{ github.workspace }}\tests' --import-mode=importlib
+          & $python '${{ github.workspace }}\benchmarks\wheel_performance.py' --label MSVC --output '${{ github.workspace }}\performance\msvc.json'
+
+      - name: Test Intel wheel without oneAPI installed
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv "${{ runner.temp }}\intel-test"
+          $python = "${{ runner.temp }}\intel-test\Scripts\python.exe"
+          $wheel = (Get-ChildItem '${{ github.workspace }}\wheels\intel\*.whl').FullName
+          & $python -m pip install $wheel "pytest>=8" "pyteomics>=4.7"
+          & $python -m pytest '${{ github.workspace }}\tests' --import-mode=importlib
+          & $python '${{ github.workspace }}\benchmarks\wheel_performance.py' --label Intel --output '${{ github.workspace }}\performance\intel.json'
+
+      - name: Compare compiler performance and numerical results
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          $python = "${{ runner.temp }}\msvc-test\Scripts\python.exe"
+          & $python '${{ github.workspace }}\benchmarks\compare_performance.py' `
+            --msvc '${{ github.workspace }}\performance\msvc.json' `
+            --intel '${{ github.workspace }}\performance\intel.json' `
+            --output '${{ github.workspace }}\performance\comparison.json' `
+            --summary $env:GITHUB_STEP_SUMMARY `
+            --maximum-slowdown 1.10
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: performance-Windows-compilers
+          path: performance/*.json
+          if-no-files-found: warn
 
   wheels-linux:
     name: Build Linux wheel
@@ -211,7 +306,7 @@ jobs:
   github-release:
     name: Create GitHub release
     if: github.event_name == 'workflow_dispatch'
-    needs: [release-metadata, wheels-windows, wheels-linux, wheels-macos, sdist]
+    needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-linux, wheels-macos, sdist]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -219,9 +314,14 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          pattern: "*"
+          pattern: "wheel-*"
           path: dist
           merge-multiple: true
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: source-distribution
+          path: dist
 
       - name: Publish release and upload artifacts
         env:
@@ -249,10 +349,11 @@ jobs:
       (github.event_name == 'release' || needs.github-release.result == 'success') &&
       needs.release-metadata.result == 'success' &&
       needs.wheels-windows.result == 'success' &&
+      needs.compare-windows-compilers.result == 'success' &&
       needs.wheels-linux.result == 'success' &&
       needs.wheels-macos.result == 'success' &&
       needs.sdist.result == 'success'
-    needs: [release-metadata, wheels-windows, wheels-linux, wheels-macos, sdist, github-release]
+    needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-linux, wheels-macos, sdist, github-release]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -263,8 +364,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          pattern: "*"
+          pattern: "wheel-*"
           path: dist
           merge-multiple: true
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: source-distribution
+          path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1

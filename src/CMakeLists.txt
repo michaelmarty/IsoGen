@@ -16,6 +16,17 @@ option(
     "Build the runtime-dispatched AVX2/FMA neural-network implementation"
     ON
 )
+option(
+    ISOGEN_REQUIRE_INTELLLVM
+    "Fail configuration unless the Intel LLVM compiler is active"
+    OFF
+)
+
+if(ISOGEN_REQUIRE_INTELLLVM AND NOT CMAKE_C_COMPILER_ID STREQUAL "IntelLLVM")
+    message(FATAL_ERROR
+        "ISOGEN_REQUIRE_INTELLLVM is ON, but the C compiler is ${CMAKE_C_COMPILER_ID}"
+    )
+endif()
 
 # Set SRC_DIR to the path of the IsoDec source code
 get_filename_component(SRC_DIR ./ ABSOLUTE)
@@ -94,6 +105,28 @@ install(
     LIBRARY DESTINATION . COMPONENT Runtime
     ARCHIVE DESTINATION . COMPONENT Development
 )
+
+# IntelLLVM can emit calls into Intel's optimized math runtime on Windows.
+# Bundle those redistributable DLLs beside isogen.dll so the wheel remains
+# self-contained on machines that do not have oneAPI installed.
+if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "IntelLLVM")
+    get_filename_component(ISOGEN_INTEL_COMPILER_BIN "${CMAKE_C_COMPILER}" DIRECTORY)
+    foreach(ISOGEN_INTEL_RUNTIME IN ITEMS libmmd.dll svml_dispmd.dll)
+        set(ISOGEN_INTEL_RUNTIME_PATH
+            "${ISOGEN_INTEL_COMPILER_BIN}/${ISOGEN_INTEL_RUNTIME}"
+        )
+        if(NOT EXISTS "${ISOGEN_INTEL_RUNTIME_PATH}")
+            message(FATAL_ERROR
+                "Required Intel runtime was not found: ${ISOGEN_INTEL_RUNTIME_PATH}"
+            )
+        endif()
+        install(
+            FILES "${ISOGEN_INTEL_RUNTIME_PATH}"
+            DESTINATION .
+            COMPONENT Runtime
+        )
+    endforeach()
+endif()
 
 add_executable(isogen_test isogen_test.cpp)
 target_include_directories(isogen_test PUBLIC ${SRC_DIR})

@@ -303,6 +303,13 @@ python -m pip install -e ".[test]"
 python -m pytest
 ```
 
+The Windows release workflow builds the native wheel with both MSVC and the
+Intel oneAPI compiler. Both wheels run the complete unit test suite on a clean
+Windows runner, after which representative FFT, NN, and BRAIN workloads are
+compared for numerical agreement and performance. The Intel wheel is the
+Windows release artifact; the MSVC wheel and JSON benchmark results are kept
+as workflow artifacts for comparison.
+
 Development and model-training modules have additional dependencies:
 
 ```shell
@@ -311,6 +318,10 @@ python -m pip install -e ".[training]"
 
 
 ## CHANGELOG
+
+### 1.0.7
+
+Updated Windows build to Intel compiler to improve speed.
 
 ### 1.0.6 
 

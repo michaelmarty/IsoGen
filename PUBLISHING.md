@@ -4,6 +4,13 @@ IsoGen uses scikit-build-core to compile its native C library while each wheel
 is built. Windows, Linux, macOS Intel, and macOS Apple Silicon wheels must be
 built and tested on their target platforms.
 
+The Windows job builds both an MSVC comparison wheel and the release wheel
+with a pinned Intel oneAPI compiler. A separate clean Windows runner installs
+and runs the full tests against both wheels, checks their numerical results,
+and records FFT, NN, and BRAIN timings. This also verifies that the Intel wheel
+contains its required runtime DLLs and does not depend on oneAPI being
+installed on the user's machine.
+
 ## Prepare a release
 
 1. Update `isogen/_version.py`.
@@ -21,6 +28,11 @@ builds and tests all platform wheels plus the source distribution, creates the
 matching `v<version>` tag, and publishes a GitHub release containing those
 artifacts. It fails without changing an existing release if that tag has
 already been released.
+
+The Windows comparison fails if the Intel wheel's geometric-mean runtime is
+more than 10% slower than the MSVC wheel. Per-workload timings and ratios are
+written to the workflow summary and uploaded in the
+`performance-Windows-compilers` artifact.
 
 Set **Also publish the release artifacts to PyPI?** to `true` to publish the
 same artifacts through PyPI trusted publishing after the GitHub release is
