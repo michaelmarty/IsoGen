@@ -14,6 +14,32 @@ neutral-mass inputs.
 
 The NN methods are very accurate and can be faster on smaller species. The primary advantage of these is that they can be retrained on non-standard isotope distributions.
 
+## License
+
+IsoGen is released under the BSD 3-Clause License. See LICENSE for details.
+
+Additional license information is available in THIRD_PARTY_NOTICES.md for FFTW and Intel compiler runtime libraries.
+
+PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT AND RELEVANT BACKGROUND LITERATURE BELOW. Machine-readable citation metadata is available in [CITATION.cff](CITATION.cff).
+
+IsoGen is currently in preprint, please cite:
+
+Pavek, J.G.; Grimes, J.; Frey, B.L.; Welham, N.V.; Smith, L.M.; Marty, M.T. "[Neural Network Prediction of Isotopic Distributions](https://chemrxiv.org/doi/abs/10.26434/chemrxiv.15006709/v1)" ChemRxiv 2026, doi:10.26434/chemrxiv.15006709/v1
+
+The FFT method is derived from the following citation:
+
+Rockwood, A.L.; Palmblad, M. [Isotopic Distributions. In Mass Spectrometry Data Analysis in Proteomics](https://doi.org/10.1007/978-1-62703-392-3_3), Matthiesen, R. Ed.; Humana Press, 2013; pp 65–99.
+
+The BRAIN method is derived from these citations:
+
+Dittwald, P.; Claesen, J.; Burzykowski, T.; Valkenborg, D.; Gambin, A. "[BRAIN: A Universal Tool for High-Throughput Calculations of the Isotopic Distribution for Mass Spectrometry](https://doi.org/10.1021/ac303439m)" Analytical Chemistry 2013, 85, 1991–1994
+
+Dittwald, P.; Valkenborg, D. "[BRAIN 2.0: Time and Memory Complexity Improvements in the Algorithm for Calculating the Isotope Distribution](https://doi.org/10.1007/s13361-013-0796-5)" Journal of the American Society for Mass Spectrometry 2014, 25, 588–594
+
+## Contact
+
+If you have any questions, please email mtmarty@utexas.edu or open a ticket on GitHub.
+
 ## Installation
 
 Install a published wheel from PyPI:
@@ -283,18 +309,14 @@ Development and model-training modules have additional dependencies:
 python -m pip install -e ".[training]"
 ```
 
-## License
-
-IsoGen is released under the BSD 3-Clause License. See LICENSE for details.
-
-PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT (publication to follow).
-
-## Contact
-
-If you have any questions, please email mtmarty@utexas.edu or open a ticket on GitHub.
-
 
 ## CHANGELOG
+
+### 1.0.5
+
+Updated citation info.
+
+Reformatted build to pull version from _version.py file.
 
 ### 1.0.4
 

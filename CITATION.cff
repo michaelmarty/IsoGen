@@ -1,0 +1,139 @@
+cff-version: 1.2.0
+message: >-
+  If you use IsoGen, please cite the primary IsoGen paper and the relevant
+  method references listed in this file.
+title: IsoGen
+type: software
+authors:
+  - family-names: Marty
+    given-names: Michael T.
+    email: mtmarty@utexas.edu
+abstract: >-
+  Fast isotope-distribution calculations for proteins, nucleic acids, and
+  elemental formulas using FFT, BRAIN, and neural-network methods.
+version: "1.0.5"
+repository-code: "https://github.com/michaelmarty/IsoGen"
+url: "https://michaelmarty.github.io/IsoGen/"
+license: BSD-3-Clause
+keywords:
+  - isotope distribution
+  - mass spectrometry
+  - proteomics
+  - protein
+  - DNA
+  - RNA
+  - elemental formula
+
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Pavek
+      given-names: John G.
+    - family-names: Grimes
+      given-names: Josiah
+    - family-names: Frey
+      given-names: Brian L.
+    - family-names: Welham
+      given-names: Nathan V.
+    - family-names: Smith
+      given-names: Lloyd M.
+    - family-names: Marty
+      given-names: Michael T.
+  title: "Neural Network Prediction of Isotopic Distributions"
+  status: preprint
+  publisher:
+    name: ChemRxiv
+  year: 2026
+  month: 7
+  doi: 10.26434/chemrxiv.15006709/v1
+  url: "https://doi.org/10.26434/chemrxiv.15006709/v1"
+
+references:
+  - type: article
+    scope: Primary publication describing IsoGen's neural-network method.
+    authors:
+      - family-names: Pavek
+        given-names: John G.
+      - family-names: Grimes
+        given-names: Josiah
+      - family-names: Frey
+        given-names: Brian L.
+      - family-names: Welham
+        given-names: Nathan V.
+      - family-names: Smith
+        given-names: Lloyd M.
+      - family-names: Marty
+        given-names: Michael T.
+    title: "Neural Network Prediction of Isotopic Distributions"
+    status: preprint
+    publisher:
+      name: ChemRxiv
+    year: 2026
+    month: 7
+    doi: 10.26434/chemrxiv.15006709/v1
+    url: "https://doi.org/10.26434/chemrxiv.15006709/v1"
+
+  - type: article
+    scope: Background reference for the FFT method.
+    authors:
+      - family-names: Rockwood
+        given-names: Alan L.
+      - family-names: Palmblad
+        given-names: Magnus
+    title: "Isotopic Distributions"
+    collection-title: "Mass Spectrometry Data Analysis in Proteomics"
+    collection-type: book
+    editors:
+      - family-names: Matthiesen
+        given-names: Rune
+    publisher:
+      name: Humana Press
+    year: 2013
+    start: 65
+    end: 99
+    doi: 10.1007/978-1-62703-392-3_3
+    url: "https://doi.org/10.1007/978-1-62703-392-3_3"
+
+  - type: article
+    scope: Background reference for the BRAIN method.
+    authors:
+      - family-names: Dittwald
+        given-names: Piotr
+      - family-names: Claesen
+        given-names: Jürgen
+      - family-names: Burzykowski
+        given-names: Tomasz
+      - family-names: Valkenborg
+        given-names: Dirk
+      - family-names: Gambin
+        given-names: Anna
+    title: >-
+      BRAIN: A Universal Tool for High-Throughput Calculations of the Isotopic
+      Distribution for Mass Spectrometry
+    journal: Analytical Chemistry
+    year: 2013
+    volume: 85
+    issue: 4
+    start: 1991
+    end: 1994
+    doi: 10.1021/ac303439m
+    url: "https://doi.org/10.1021/ac303439m"
+
+  - type: article
+    scope: Background reference for the BRAIN 2.0 method.
+    authors:
+      - family-names: Dittwald
+        given-names: Piotr
+      - family-names: Valkenborg
+        given-names: Dirk
+    title: >-
+      BRAIN 2.0: Time and Memory Complexity Improvements in the Algorithm for
+      Calculating the Isotope Distribution
+    journal: Journal of the American Society for Mass Spectrometry
+    year: 2014
+    volume: 25
+    issue: 4
+    start: 588
+    end: 594
+    doi: 10.1007/s13361-013-0796-5
+    url: "https://doi.org/10.1007/s13361-013-0796-5"
