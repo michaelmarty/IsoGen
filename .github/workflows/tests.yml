@@ -104,8 +104,10 @@ jobs:
               throw "vcpkg failed with exit code $LASTEXITCODE"
           }
 
-          $toolchain = Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake'
-          $fftwRoot = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/arm64-windows'
+          # scikit-build-core parses CMAKE_ARGS with shell-style escaping, so
+          # use CMake's accepted forward-slash form for Windows paths.
+          $toolchain = (Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake').Replace('\', '/')
+          $fftwRoot = (Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/arm64-windows').Replace('\', '/')
           "CMAKE_ARGS=-DCMAKE_TOOLCHAIN_FILE=$toolchain -DVCPKG_TARGET_TRIPLET=arm64-windows -DFFTW3_ROOT=$fftwRoot" |
               Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
