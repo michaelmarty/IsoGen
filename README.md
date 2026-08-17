@@ -319,6 +319,10 @@ python -m pip install -e ".[training]"
 
 ## CHANGELOG
 
+### 1.0.8
+
+Updated to add ARM64 to build and address FFTW potential issues.
+
 ### 1.0.7
 
 Updated Windows build to Intel compiler to improve speed.
