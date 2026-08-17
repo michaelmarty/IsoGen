@@ -44,7 +44,9 @@ jobs:
 
       - name: Install macOS native dependency
         if: runner.os == 'macOS'
-        run: brew install fftw
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+          brew install fftw
 
       - name: Install package and test dependencies
         run: python -m pip install ".[test]"
