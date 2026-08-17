@@ -12,11 +12,6 @@ option(
     ON
 )
 option(
-    ISOGEN_ENABLE_AVX2
-    "Build the runtime-dispatched AVX2/FMA neural-network implementation"
-    ON
-)
-option(
     ISOGEN_REQUIRE_INTELLLVM
     "Fail configuration unless the Intel LLVM compiler is active"
     OFF
@@ -53,34 +48,10 @@ set(ISOGEN_SOURCES
                 isogenatom.c isogenatom.h
 )
 
-set(ISOGEN_AVX2_DISPATCH_AVAILABLE OFF)
-if(ISOGEN_ENABLE_AVX2 AND
-   CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i[3-6]86)$")
-    if(MSVC)
-        set_source_files_properties(isogen_avx2.c PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
-        set(ISOGEN_AVX2_DISPATCH_AVAILABLE ON)
-    elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
-        set_source_files_properties(isogen_avx2.c PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma")
-        set(ISOGEN_AVX2_DISPATCH_AVAILABLE ON)
-    else()
-        message(WARNING "AVX2 runtime dispatch is not supported by ${CMAKE_C_COMPILER_ID}; using scalar code")
-    endif()
-endif()
-
-if(ISOGEN_AVX2_DISPATCH_AVAILABLE)
-    list(APPEND ISOGEN_SOURCES isogen_avx2.c)
-    message(STATUS "Building runtime-dispatched AVX2/FMA support")
-else()
-    message(STATUS "Building scalar neural-network implementation")
-endif()
-
 add_library(isogen SHARED ${ISOGEN_SOURCES})
 set_target_properties(isogen PROPERTIES LINKER_LANGUAGE C)
 target_include_directories(isogen PUBLIC ${FFTW_DIR})
 target_compile_definitions(isogen PUBLIC ISOGEN_BUILD_DLL)
-if(ISOGEN_AVX2_DISPATCH_AVAILABLE)
-    target_compile_definitions(isogen PRIVATE ISOGEN_AVX2_DISPATCH=1)
-endif()
 
 
 set(ISOGEN_X64 OFF)

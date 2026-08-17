@@ -56,3 +56,66 @@ jobs:
       - name: Run unit tests
         working-directory: ${{ runner.temp }}
         run: python -m pytest "${{ github.workspace }}/tests" --import-mode=importlib
+
+  test-arm64:
+    name: ${{ matrix.platform }} ARM64 / Python 3.13
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - platform: Linux
+            runner: ubuntu-24.04-arm
+          - platform: Windows
+            runner: windows-11-arm
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: arm64
+
+      - name: Verify native ARM64 runner
+        run: python -c "import platform; machine = platform.machine().lower(); assert machine in ('aarch64', 'arm64'), f'Expected ARM64, found {machine}'"
+
+      - name: Install Linux FFTW
+        if: matrix.platform == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libfftw3-double3
+
+      - name: Install Windows ARM64 FFTW
+        if: matrix.platform == 'Windows'
+        shell: pwsh
+        run: |
+          $vcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
+          & $vcpkg install fftw3:arm64-windows
+          if ($LASTEXITCODE -ne 0) {
+              throw "vcpkg failed with exit code $LASTEXITCODE"
+          }
+
+          $toolchain = Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake'
+          $fftwRoot = Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/arm64-windows'
+          "CMAKE_ARGS=-DCMAKE_TOOLCHAIN_FILE=$toolchain -DVCPKG_TARGET_TRIPLET=arm64-windows -DFFTW3_ROOT=$fftwRoot" |
+              Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install package and test dependencies
+        run: python -m pip install ".[test]"
+
+      - name: Verify portable Linux runtime linkage
+        if: matrix.platform == 'Linux'
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: |
+          native_library="$(python -c 'from isogen.isogenwrapper import dllpath; print(dllpath)')"
+          if readelf --dynamic "$native_library" | grep -E 'libstdc\+\+|libgcc_s'; then
+            echo "$native_library must not depend on the build host's GNU runtime libraries"
+            exit 1
+          fi
+          if readelf --version-info "$native_library" | grep -q GLIBCXX_; then
+            echo "$native_library must not require versioned GLIBCXX symbols"
+            exit 1
+          fi
+
+      - name: Run unit tests
+        working-directory: ${{ runner.temp }}
+        run: python -m pytest "${{ github.workspace }}/tests" --import-mode=importlib
