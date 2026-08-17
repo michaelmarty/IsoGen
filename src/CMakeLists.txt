@@ -21,6 +21,8 @@ option(
     "Fail configuration unless the Intel LLVM compiler is active"
     OFF
 )
+set(FFTW3_ROOT "" CACHE PATH "Root directory of an FFTW3 installation")
+set(FFTW3_DIR "" CACHE PATH "FFTW3 installation or library directory")
 
 if(ISOGEN_REQUIRE_INTELLLVM AND NOT CMAKE_C_COMPILER_ID STREQUAL "IntelLLVM")
     message(FATAL_ERROR
@@ -81,24 +83,71 @@ if(ISOGEN_AVX2_DISPATCH_AVAILABLE)
 endif()
 
 
-if(MSVC)
+set(ISOGEN_X64 OFF)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    set(ISOGEN_X64 ON)
+endif()
+
+# The bundled FFTW archive contains AMD64 COFF objects and is valid only for
+# native x64 MSVC builds. All other targets discover an architecture-matched
+# FFTW installation supplied by the system, Homebrew, vcpkg, or an explicit
+# FFTW3_ROOT/FFTW3_DIR hint.
+if(MSVC AND ISOGEN_X64)
     add_library(fftw3 STATIC IMPORTED)
     set_target_properties(fftw3 PROPERTIES IMPORTED_LOCATION ${FFTW_DIR}/fftw3.lib)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
-    message(STATUS "Not MSVC")
-    message(STATUS "CMAKE_C_COMPILER_ID: ${CMAKE_C_COMPILER_ID}")
+    set(FFTW3_HINTS)
+    foreach(FFTW3_HINT IN ITEMS
+            "${FFTW3_ROOT}"
+            "${FFTW3_DIR}"
+            "$ENV{FFTW3_ROOT}"
+            "$ENV{FFTW3_DIR}")
+        if(FFTW3_HINT)
+            list(APPEND FFTW3_HINTS "${FFTW3_HINT}")
+        endif()
+    endforeach()
     find_library(
         FFTW3_LIBRARY
-        NAMES fftw3 libfftw3.so.3 fftw3.so.3
-        REQUIRED
+        NAMES fftw3 libfftw3-3 libfftw3.so.3 fftw3.so.3
+        HINTS ${FFTW3_HINTS}
+        PATH_SUFFIXES lib lib64
     )
-    add_library(fftw3 SHARED IMPORTED)
+    if(NOT FFTW3_LIBRARY)
+        message(FATAL_ERROR
+            "FFTW3 was not found for ${CMAKE_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR}. "
+            "Install libfftw3-dev (Debian/Ubuntu), brew install fftw (macOS), "
+            "or vcpkg install fftw3:<triplet> (Windows), then set FFTW3_ROOT, "
+            "FFTW3_DIR, FFTW3_LIBRARY, or CMAKE_PREFIX_PATH."
+        )
+    endif()
+    message(STATUS "FFTW3_LIBRARY: ${FFTW3_LIBRARY}")
+    add_library(fftw3 UNKNOWN IMPORTED)
     set_target_properties(fftw3 PROPERTIES IMPORTED_LOCATION "${FFTW3_LIBRARY}")
-    target_link_libraries(isogen PUBLIC m)
+    if(NOT WIN32)
+        target_link_libraries(isogen PUBLIC m)
+    endif()
+    if(MSVC)
+        add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    endif()
 endif()
 
 target_link_libraries(isogen PUBLIC fftw3)
+
+# Dynamic vcpkg installations need their FFTW DLL beside isogen.dll. Static
+# installations have no matching runtime file and simply skip this step.
+if(WIN32 AND NOT (MSVC AND ISOGEN_X64))
+    find_file(
+        FFTW3_RUNTIME_LIBRARY
+        NAMES fftw3.dll libfftw3-3.dll
+        HINTS ${FFTW3_HINTS}
+        PATH_SUFFIXES bin
+    )
+    if(FFTW3_RUNTIME_LIBRARY)
+        message(STATUS "FFTW3_RUNTIME_LIBRARY: ${FFTW3_RUNTIME_LIBRARY}")
+        install(FILES "${FFTW3_RUNTIME_LIBRARY}" DESTINATION . COMPONENT Runtime)
+    endif()
+endif()
 install(
     TARGETS isogen
     RUNTIME DESTINATION . COMPONENT Runtime
