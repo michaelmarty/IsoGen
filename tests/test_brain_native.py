@@ -144,18 +144,47 @@ def test_brain_entry_points_reject_invalid_output_geometry(function_name, input_
     assert function(input_value, None, len(observed), 0) == -1.0
 
 
-def test_rna_sequence_counts_each_nucleotide_phosphate_once():
-    observed = np.zeros(32, dtype=np.float32)
+def test_rna_fft_sequence_uses_length_selected_fft_size():
+    observed = np.zeros(128, dtype=np.float32)
     expected = np.zeros_like(observed)
     # Sum of the A, C, G, and U vectors; phosphorus has only one stable isotope.
     formula = (ctypes.c_int * 5)(38, 43, 15, 28, 0)
+    selected = np.zeros(64, dtype=np.float32)
 
     isogen_c_lib.fft_rna_seq_to_dist(
         b"ACGU", _float_pointer(observed), len(observed), 0
     )
     isogen_c_lib.fft_list_to_dist(
-        formula, len(expected), _float_pointer(expected)
+        formula, len(selected), _float_pointer(selected)
     )
-    expected /= expected.max()
+    selected /= selected.max()
+    expected[: len(selected)] = selected
 
+    np.testing.assert_allclose(observed, expected, rtol=1e-6, atol=1e-8)
+
+
+def test_rna_fft_mass_uses_mass_selected_fft_size():
+    mass = 100_000.0
+    observed = np.zeros(1024, dtype=np.float32)
+    expected = np.zeros_like(observed)
+    monomers = (mass + 95.9534) / 320.283814
+    formula = (ctypes.c_int * 5)(
+        round(9.50 * monomers),
+        round(10.75 * monomers),
+        round(3.75 * monomers),
+        round(7.0 * monomers) - 4,
+        0,
+    )
+    selected = np.zeros(128, dtype=np.float32)
+
+    result = isogen_c_lib.fft_rna_mass_to_dist(
+        mass, _float_pointer(observed), len(observed), 0
+    )
+    expected_max = isogen_c_lib.fft_list_to_dist(
+        formula, len(selected), _float_pointer(selected)
+    )
+    selected /= expected_max
+    expected[: len(selected)] = selected
+
+    assert result == pytest.approx(expected_max)
     np.testing.assert_allclose(observed, expected, rtol=1e-6, atol=1e-8)

@@ -319,6 +319,16 @@ python -m pip install -e ".[training]"
 
 ## CHANGELOG
 
+### 1.0.9
+
+Fixed FFT RNA length calculation, which speeds up smaller RNA calculations with FFT. 
+
+Also, improved install cmake to default to bin directory.
+
+Added timing_test_rna.py for RNA timing tests.
+
+Added bin files for windows builds.
+
 ### 1.0.8
 
 Updated to add ARM64 to build and address FFTW potential issues.

@@ -50,6 +50,9 @@ static int nn_output_ready(const struct IsoGenWeights weights, const float* nn_i
            weights.w3 != NULL && weights.b3 != NULL;
 }
 
+int fft_rna_len_to_isolen(const int rna_len);
+int fft_rna_mass_to_isolen(float mass);
+
 
 void rna_mass_to_list(float initialMass, int* fftlist)
 //Mass -> List 5 length list of number of {C, H, N, O, S}
@@ -81,16 +84,24 @@ float fft_rna_mass_to_dist(float mass, float* isodist, int isolen, int offset)
     }
     rna_mass_to_list(mass, fftlist);
 
-    float max_val = fft_list_to_dist(fftlist, isolen, isodist);
-    if (max_val < 0.0f) {
+    int fft_isolen = fft_rna_mass_to_isolen(mass);
+    float* fft_isodist = (float*)calloc(fft_isolen, sizeof(float));
+    if (fft_isodist == NULL) {
         free(fftlist);
         return -1.0f;
     }
 
-    for (int i = isolen - offset - 1; i >= 0; i--)
+    float max_val = fft_list_to_dist(fftlist, fft_isolen, fft_isodist);
+    if (max_val < 0.0f) {
+        free(fft_isodist);
+        free(fftlist);
+        return -1.0f;
+    }
+
+    int copy_len = fft_isolen < isolen - offset ? fft_isolen : isolen - offset;
+    for (int i = copy_len - 1; i >= 0; i--)
     {
-        isodist[i + offset] = isodist[i];
-        if (i < offset) { isodist[i] = 0.0f; }
+        isodist[i + offset] = fft_isodist[i];
     }
 
     if (max_val > 0.0f) {
@@ -98,6 +109,7 @@ float fft_rna_mass_to_dist(float mass, float* isodist, int isolen, int offset)
             isodist[i] /= max_val;
         }
     }
+    free(fft_isodist);
     free(fftlist);
     return max_val;
 }
@@ -209,21 +221,30 @@ float fft_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen
         printf("Error: Could not allocate memory for formulalist\n");
         return -1.0f;
     }
-    if (rna_seq_to_fftlist(sequence, fftlist) < 0) {
+    int rna_len = rna_seq_to_fftlist(sequence, fftlist);
+    if (rna_len < 0) {
         free(fftlist);
         return -1.0f;
     }
 
-    float maxval = fft_list_to_dist(fftlist, isolen, isodist);
-    free(fftlist);
-    if (maxval < 0.0f) {
+    int fft_isolen = fft_rna_len_to_isolen(rna_len);
+    float* fft_isodist = (float*)calloc(fft_isolen, sizeof(float));
+    if (fft_isodist == NULL) {
+        free(fftlist);
         return -1.0f;
     }
 
-    for (int i = isolen - offset - 1; i >= 0; i--)
+    float maxval = fft_list_to_dist(fftlist, fft_isolen, fft_isodist);
+    free(fftlist);
+    if (maxval < 0.0f) {
+        free(fft_isodist);
+        return -1.0f;
+    }
+
+    int copy_len = fft_isolen < isolen - offset ? fft_isolen : isolen - offset;
+    for (int i = copy_len - 1; i >= 0; i--)
     {
-        isodist[i + offset] = isodist[i];
-        if (i < offset) { isodist[i] = 0.0f; }
+        isodist[i + offset] = fft_isodist[i];
     }
 
     if (maxval > 0.0f) {
@@ -232,6 +253,7 @@ float fft_rna_seq_to_dist(const char* sequence, float* isodist, const int isolen
         }
     }
 
+    free(fft_isodist);
     return maxval;
 }
 

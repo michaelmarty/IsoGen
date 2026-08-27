@@ -65,7 +65,10 @@ deployment.
 
 The Python wrapper loads the platform library from the repository-level `bin`
 directory during source development and from `isogen/bin` in an installed
-wheel. Linux development environments must provide the FFTW 3 runtime.
+wheel. A direct CMake install defaults to `isogen/bin`, avoiding the
+administrator-only Program Files location; pass `-DCMAKE_INSTALL_PREFIX=...`
+to use a different destination. Linux development environments must provide
+the FFTW 3 runtime.
 
 The native library uses the portable scalar neural-network implementation by
 default on every architecture. `isogendep.c` retains a compiler-guarded

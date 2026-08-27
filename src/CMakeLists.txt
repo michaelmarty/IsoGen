@@ -6,6 +6,13 @@ project(isogen C CXX)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(
+        CMAKE_INSTALL_PREFIX
+        "${CMAKE_CURRENT_SOURCE_DIR}/../isogen/bin"
+        CACHE PATH "Install path prefix, prepended onto install directories." FORCE
+    )
+endif()
 option(
     ISOGEN_STATIC_GNU_RUNTIME
     "Statically link libstdc++ and libgcc into Linux binaries for portability"
@@ -166,7 +173,6 @@ install(
     RUNTIME DESTINATION bin
     COMPONENT Development
 )
-
 
 
 
