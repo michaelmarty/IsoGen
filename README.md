@@ -79,7 +79,13 @@ dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
 glucose_mass_dist = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
 ```
 
-The output is a numpy array of shape `(isolen, 2)` with the first column containing the monoisotopic mass and the second column containing the relative intensity. The `isolen` parameter controls the number of isotopic peaks returned.
+The output is a numpy array of shape `(isolen, 2)` with the first column containing the monoisotopic mass and the second column containing the relative intensity. The `isolen` parameter controls the number of isotopic peaks returned. To return an m/z axis, pass a charge of one or greater. The default positive polarity uses `(M + zH) / z`; pass `polarity="negative"` for `(M - zH) / z`:
+
+```python
+protein_mz = isogen.isodist(
+    "ACDEFGHIK", type="PEPTIDE", isolen=64, charge=2
+)
+```
 
 IsoGen provides FFT, BRAIN, and neural-network methods for peptides and RNA.
 The default is the exact `FFT` calculation. `BRAIN` selects the polynomial
@@ -116,7 +122,9 @@ size for the selected input and type, and its output size must equal `isolen`.
 Peptide sequence models have 20 inputs, RNA/DNA sequence models have 4 inputs,
 and neutral-mass models have 5 inputs. Invalid, unreadable, or incompatible
 model files raise `ValueError`. As with `isodist`, the result has shape
-`(isolen, 2)`, containing neutral masses and relative intensities.
+`(isolen, 2)`, containing neutral masses and relative intensities. It also
+accepts the `charge` and `polarity` keywords to return the same charge-adjusted
+m/z axes as `isodist`.
 
 #### Training custom models
 
@@ -316,8 +324,17 @@ Development and model-training modules have additional dependencies:
 python -m pip install -e ".[training]"
 ```
 
+## Future Ideas
+
+Support UniMod nomenclature for peptide modifications.
 
 ## CHANGELOG
+
+### 1.0.10
+
+Added charge and polarity as parameters that can be passed to isodist and isodist to calculate m/z rather than mass as the axis.
+
+Added a script for testing different model dimensions and encoding types.
 
 ### 1.0.9
 

@@ -431,6 +431,48 @@ def test_numeric_isodist_uses_input_as_axis_origin():
     np.testing.assert_allclose(np.diff(distribution[:, 0]), 1.01)
 
 
+@pytest.mark.parametrize(
+    ("polarity", "proton_sign"),
+    [("positive", 1), ("negative", -1)],
+)
+@pytest.mark.parametrize("charge", [1, 2])
+def test_isodist_charge_returns_charge_adjusted_mz_axis(
+    charge, polarity, proton_sign
+):
+    """Public distributions should convert neutral axes to the requested m/z."""
+    neutral_mass = 10_000.0
+    distribution = isogen.isodist(
+        neutral_mass,
+        type="PEPTIDE",
+        isolen=8,
+        isotope_spacing=1.01,
+        charge=charge,
+        polarity=polarity,
+    )
+
+    expected_origin = (
+        neutral_mass + proton_sign * charge * 1.00727647
+    ) / charge
+    assert distribution[0, 0] == pytest.approx(expected_origin)
+    np.testing.assert_allclose(np.diff(distribution[:, 0]), 1.01 / charge)
+
+
+@pytest.mark.parametrize("charge", [None, 0, -1])
+def test_isodist_charge_less_than_one_preserves_neutral_axis(charge):
+    """None, zero, and negative charges should retain the neutral mass axis."""
+    neutral_mass = 10_000.0
+    distribution = isogen.isodist(
+        neutral_mass,
+        type="PEPTIDE",
+        isolen=8,
+        isotope_spacing=1.01,
+        charge=charge,
+    )
+
+    assert distribution[0, 0] == neutral_mass
+    np.testing.assert_allclose(np.diff(distribution[:, 0]), 1.01)
+
+
 def test_dna_uses_rna_intensities_but_dna_mass_axis():
     """DNA's documented RNA intensity approximation should stay explicit."""
     dna = isogen.isodist("ATGC", type="DNA", isolen=16)

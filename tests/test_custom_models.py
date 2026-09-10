@@ -102,6 +102,31 @@ def test_public_isodist_custom_combines_mass_axis_and_custom_intensities():
     assert np.all(np.diff(observed[:, 0]) > 0)
 
 
+@pytest.mark.parametrize(
+    ("polarity", "proton_sign"),
+    [("positive", 1), ("negative", -1)],
+)
+@pytest.mark.parametrize("charge", [1, 2])
+def test_isodist_custom_charge_returns_charge_adjusted_mz_axis(
+    charge, polarity, proton_sign
+):
+    """Custom models should use the same charged m/z axes as isodist."""
+    neutral_mass = 5_000.0
+    observed = isogen.isodist_custom(
+        neutral_mass,
+        model_file=MODEL_DIRECTORY / "isogenmass_model_32.bin",
+        isolen=32,
+        charge=charge,
+        polarity=polarity,
+    )
+
+    expected_origin = (
+        neutral_mass + proton_sign * charge * 1.00727647
+    ) / charge
+    assert observed[0, 0] == pytest.approx(expected_origin)
+    np.testing.assert_allclose(np.diff(observed[:, 0]), 1.0033 / charge)
+
+
 def test_public_isodist_custom_rejects_atom_type():
     """Elemental formulas have no compatible custom neural-network model."""
     with pytest.raises(ValueError, match="Custom models support"):
