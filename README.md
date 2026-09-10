@@ -328,6 +328,8 @@ python -m pip install -e ".[training]"
 
 Support UniMod nomenclature for peptide modifications.
 
+Explore reverse models to infer something about the sequence or input type from the isotope distribution. Perhaps explore the bounds of what a reasonable peptide sequence may be.
+
 ## CHANGELOG
 
 ### 1.0.10
