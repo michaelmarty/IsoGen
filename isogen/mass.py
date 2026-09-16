@@ -321,6 +321,52 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
     return float(mass + modmass)
 
 
+def calc_pep_fragments(sequence, ion_types=("b", "y"), monoisotopic=True):
+    """Calculate the neutral masses of a peptide's backbone fragments.
+
+    Args:
+        sequence: Amino-acid sequence.
+        ion_types: Any combination of a/b/c/x/y/z ion types. A compact string
+            such as ``"by"`` or an iterable such as ``("a", "y")`` is
+            accepted.
+        monoisotopic: Use monoisotopic masses; use average masses when false.
+
+    Returns:
+        A dictionary mapping proteomics ion names (for example, ``"b1"`` and
+        ``"y2"``) to neutral masses in daltons.
+    """
+    if not isinstance(sequence, str):
+        raise TypeError("sequence must be a string")
+    if isinstance(ion_types, str):
+        ion_types = ion_types.replace(",", "").replace(" ", "")
+
+    try:
+        normalized_types = tuple(ion_type.lower() for ion_type in ion_types)
+    except (AttributeError, TypeError) as exception:
+        raise TypeError("ion_types must contain strings") from exception
+    for ion_type in normalized_types:
+        if ion_type not in {"a", "b", "c", "x", "y", "z"}:
+            raise ValueError(
+                f"Unknown ion type {ion_type!r}; expected a, b, c, x, y, or z"
+            )
+
+    mass_function = (
+        calc_pep_monoisotopic_mass if monoisotopic else calc_pep_mass
+    )
+    fragments = {}
+    for ion_type in normalized_types:
+        for length in range(1, len(sequence)):
+            fragment = (
+                sequence[:length]
+                if ion_type in {"a", "b", "c"}
+                else sequence[-length:]
+            )
+            fragments[f"{ion_type}{length}"] = float(
+                mass_function(fragment, ion_type=ion_type)
+            )
+    return fragments
+
+
 def calc_rna_mass(sequence, threeend="OH", fiveend="MP", verbose=False):
     """Calculate the average neutral mass of an RNA sequence.
 

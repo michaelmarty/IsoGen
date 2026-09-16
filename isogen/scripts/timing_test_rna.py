@@ -1,6 +1,6 @@
 """Benchmark RNA isotope-distribution methods with generated sequences.
 
-Run with ``python -m isogen.timing_test_rna``. Unlike ``timing_test.py``,
+Run with ``python -m isogen.scripts.timing_test_rna``. Unlike ``timing_test.py``,
 this script does not require external sequence files.
 """
 
@@ -13,11 +13,11 @@ import numpy as np
 from matplotlib.pyplot import rcParams
 
 if __package__:
-    from .isogen import isodist
-    from .mass import calc_rna_mass
+    from ..isogen import isodist
+    from ..mass import calc_rna_mass
 else:
     from isogen import isodist
-    from mass import calc_rna_mass
+    from isogen.mass import calc_rna_mass
 
 
 RNA_ALPHABET = "ACGU"

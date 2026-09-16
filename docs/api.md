@@ -63,6 +63,15 @@ calc_pep_monoisotopic_mass(
 
 Return the monoisotopic neutral mass.
 
+### `calc_pep_fragments`
+
+```python
+calc_pep_fragments(sequence, ion_types=("b", "y"), monoisotopic=True)
+```
+
+Return all backbone-cleavage fragment masses in a dictionary keyed by ion
+name. Any combination of `a`, `b`, `c`, `x`, `y`, and `z` series is accepted.
+
 ### `calc_pep_mass_axis`
 
 ```python

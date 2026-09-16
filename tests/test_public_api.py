@@ -83,6 +83,7 @@ def test_public_exports_are_available():
         "calc_dna_mass_axis",
         "calc_dna_monoisotopic_mass",
         "calc_mass_axis",
+        "calc_pep_fragments",
         "calc_pep_mass",
         "calc_pep_mass_axis",
         "calc_pep_monoisotopic_mass",
@@ -192,6 +193,87 @@ def test_peptide_fragment_masses_match_pyteomics(ion_type):
         ion_type=ion_type,
     )
     assert observed == pytest.approx(expected, abs=3e-5)
+
+
+def test_calc_pep_fragments_defaults_to_monoisotopic_b_and_y_ions():
+    sequence = "PEPTIDE"
+    observed = isogen.calc_pep_fragments(sequence)
+
+    assert list(observed) == [
+        *(f"b{i}" for i in range(1, len(sequence))),
+        *(f"y{i}" for i in range(1, len(sequence))),
+    ]
+    for ion_name, fragment_mass in observed.items():
+        ion_type, length = ion_name[0], int(ion_name[1:])
+        fragment = (
+            sequence[:length]
+            if ion_type in {"a", "b", "c"}
+            else sequence[-length:]
+        )
+        expected = pyteomics_mass.calculate_mass(
+            sequence=fragment,
+            ion_type=ion_type,
+        )
+        assert fragment_mass == pytest.approx(expected, abs=3e-5)
+
+
+def test_calc_pep_fragments_accepts_other_ion_combinations_and_average_mass():
+    sequence = "PEPTIDE"
+    observed = isogen.calc_pep_fragments(
+        sequence,
+        ion_types="acz",
+        monoisotopic=False,
+    )
+
+    assert set(observed) == {
+        f"{ion_type}{length}"
+        for ion_type in "acz"
+        for length in range(1, len(sequence))
+    }
+    assert observed["a3"] == pytest.approx(
+        pyteomics_mass.calculate_mass(
+            sequence=sequence[:3],
+            ion_type="a",
+            average=True,
+        ),
+        abs=0.02,
+    )
+    assert observed["z2"] == pytest.approx(
+        pyteomics_mass.calculate_mass(
+            sequence=sequence[-2:],
+            ion_type="z",
+            average=True,
+        ),
+        abs=0.02,
+    )
+
+
+@pytest.mark.parametrize("monoisotopic", [True, False])
+def test_calc_pep_fragments_matches_pyteomics(monoisotopic):
+    sequence = "PEPTIDE"
+    observed = isogen.calc_pep_fragments(
+        sequence,
+        ion_types="abcxyz",
+        monoisotopic=monoisotopic,
+    )
+
+    for ion_type in "abcxyz":
+        for length in range(1, len(sequence)):
+            fragment = (
+                sequence[:length]
+                if ion_type in "abc"
+                else sequence[-length:]
+            )
+            expected = pyteomics_mass.calculate_mass(
+                sequence=fragment,
+                ion_type=ion_type,
+                average=not monoisotopic,
+            )
+            tolerance = 3e-5 if monoisotopic else 0.02
+            assert observed[f"{ion_type}{length}"] == pytest.approx(
+                expected,
+                abs=tolerance,
+            )
 
 
 @pytest.mark.parametrize(

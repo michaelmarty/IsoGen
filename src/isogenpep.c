@@ -208,7 +208,7 @@ float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset
     int aas = pep_seq_to_nnvector(seq, vector);
 
     if (aas > 1000) {
-        printf("Sequence contains too many amino acids (>1000).");
+        printf("Sequence contains too many amino acids (>1000).\n");
         free(vector);
         return -1.0f;
     }

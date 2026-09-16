@@ -8,16 +8,16 @@ import os
 import pandas as pd
 
 if __package__:
-    from .isogen import isodist
-    from .mass import calc_pep_mass
-    from .isogen_tools import (
+    from ..isogen import isodist
+    from ..mass import calc_pep_mass
+    from ..isogen_tools import (
         pep_makemass,
         peptide_to_aacount,
     )
 else:
     from isogen import isodist
-    from mass import calc_pep_mass
-    from isogen_tools import (
+    from isogen.mass import calc_pep_mass
+    from isogen.isogen_tools import (
         pep_makemass,
         peptide_to_aacount,
     )

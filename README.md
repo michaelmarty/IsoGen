@@ -332,6 +332,12 @@ Explore reverse models to infer something about the sequence or input type from 
 
 ## CHANGELOG
 
+### 1.0.11
+
+Added calc_pep_fragments to mass.py to allow for peptide fragment mass calculations. This isn't directly related to isotope distributions, but it is useful for other proteomics applications. 
+
+
+
 ### 1.0.10
 
 Added charge and polarity as parameters that can be passed to isodist and isodist to calculate m/z rather than mass as the axis.

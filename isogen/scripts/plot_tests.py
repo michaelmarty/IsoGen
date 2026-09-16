@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 if __package__:
-    from . import isodist
+    from .. import isodist
 else:
     from isogen import isodist
 

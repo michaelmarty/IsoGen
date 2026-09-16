@@ -40,6 +40,8 @@ The supported `ion_type` values describe neutral terminal compositions:
 ```python
 b6_mass = isogen.calc_pep_monoisotopic_mass("PEPTID", ion_type="b")
 y6_mass = isogen.calc_pep_monoisotopic_mass("EPTIDE", ion_type="y")
+fragments = isogen.calc_pep_fragments("PEPTIDE")
+# {"b1": ..., "b2": ..., ..., "y1": ..., "y2": ..., ...}
 ```
 
 These are neutral masses. Charge and proton/adduct masses are not applied.
