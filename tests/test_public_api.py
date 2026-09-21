@@ -145,8 +145,6 @@ def test_peptide_masses_match_pyteomics():
 @pytest.mark.parametrize(
     ("mass_function", "sequence", "cleaned_sequence"),
     [
-        (isogen.calc_pep_mass, "PEPXIDE", "PEPIDE"),
-        (isogen.calc_pep_monoisotopic_mass, "PEPXIDE", "PEPIDE"),
         (isogen.calc_rna_mass, "AUGX", "AUG"),
         (isogen.calc_rna_monoisotopic_mass, "AUGX", "AUG"),
         (isogen.calc_dna_mass, "ATGX", "ATG"),

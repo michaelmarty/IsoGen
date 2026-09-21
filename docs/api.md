@@ -63,6 +63,18 @@ calc_pep_monoisotopic_mass(
 
 Return the monoisotopic neutral mass.
 
+Both peptide mass functions automatically recognize supported ProForma
+annotations. The lower-level helpers are also public:
+
+```python
+calc_proforma_mass(sequence, monoisotopic=True, ion_type="H2O")
+strip_proforma(sequence)
+```
+
+`calc_proforma_mass` resolves UniMod, PSI-MOD, and RESID annotations and
+returns a neutral mass. `strip_proforma` returns the unannotated sequence used
+by the current isotope-intensity approximation.
+
 ### `calc_pep_fragments`
 
 ```python

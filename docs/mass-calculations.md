@@ -25,6 +25,51 @@ average = isogen.calc_pep_mass("PEPTIDE")
 monoisotopic = isogen.calc_pep_monoisotopic_mass("PEPTIDE")
 ```
 
+### Modified proteins (ProForma)
+
+Protein mass functions accept the mass-bearing parts of the current
+[HUPO-PSI ProForma notation](https://github.com/HUPO-PSI/ProForma). UniMod,
+PSI-MOD, and RESID names and accessions are resolved from databases bundled
+with IsoGen. Numeric shifts, elemental formulas, terminal modifications,
+labile or unlocalized modifications, and global fixed modifications are also
+supported:
+
+```python
+oxidized = isogen.calc_pep_monoisotopic_mass("EM[Oxidation]E")
+psi_mod_oxidized = isogen.calc_pep_monoisotopic_mass(
+    "EM[MOD:00719]E"
+)
+resid_oxidized = isogen.calc_pep_monoisotopic_mass(
+    "EM[RESID:AA0581]E"
+)
+n_terminal = isogen.calc_pep_monoisotopic_mass("[Acetyl]-PEPTIDE")
+fixed_cysteine = isogen.calc_pep_monoisotopic_mass(
+    "<[Carbamidomethyl]@C>ACDC"
+)
+```
+
+`J`, `O`, and `U` have defined residue masses. `B` and `Z` use the arithmetic
+midpoint of their D/N and E/Q possibilities. Because `X` has no unique mass,
+it must carry a complete signed mass gap, for example
+`RTAAX[+367.0537]WT`; bare `X` raises `ValueError`.
+
+XL-MOD, GNO/GNOme, cross-links, branched peptides, isotope replacement, and
+multi-peptidoform expressions are not yet supported. `calc_pep_fragments`
+also remains limited to unmodified sequences.
+
+For `isodist`, ProForma annotations affect the mass-axis origin but are
+removed before FFT, NN, or BRAIN calculates intensities. Thus the current
+isotope envelope is the unmodified-sequence approximation. An exact modified
+envelope will require applying every modification formula to an elemental
+composition; a numeric mass shift alone is insufficient to determine one.
+
+Use the dedicated helpers when parsing is useful independently:
+
+```python
+mass = isogen.calc_proforma_mass("EM[UNIMOD:35]E")
+sequence = isogen.strip_proforma("EM[UNIMOD:35]E")  # "EME"
+```
+
 The supported `ion_type` values describe neutral terminal compositions:
 
 | Ion type | Sequence to supply | Terminal shift from residue sum |

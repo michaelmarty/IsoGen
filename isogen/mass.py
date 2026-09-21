@@ -4,8 +4,18 @@ import os
 
 if __package__:
     from .isogenwrapper import atom_formula_to_vector
+    from .protein_mods import (
+        calc_proforma_mass,
+        needs_proforma_parser,
+        strip_proforma,
+    )
 else:
     from isogenwrapper import atom_formula_to_vector
+    from protein_mods import (
+        calc_proforma_mass,
+        needs_proforma_parser,
+        strip_proforma,
+    )
 
 aa_masses = {'A': 71.0788, 'C': 103.1388, 'D': 115.0886, 'E': 129.1155, 'F': 147.1766,
              'G': 57.0519, 'H': 137.1411, 'I': 113.1594, 'K': 128.1741, 'L': 113.1594,
@@ -236,34 +246,47 @@ def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False
         Average neutral mass in daltons.
     """
     is_sequence = isinstance(sequence, str)
-    if all_cyst_ox and is_sequence:
-        # Count number of c in sequence
-        c = sequence.lower().count("c")
-        # Multiply by -1 * mass of H
-        modmass = c * (-1 * mass_H)
-    else:
-        modmass = 0
-
     if remove_nan and is_sequence and sequence.lower() == "nan":
         return 0.0
 
+    plain_sequence = sequence
     if allow_float:
         try:
             mass = float(sequence)
         except (TypeError, ValueError):
-            seq = sequence.upper()
-            mass = np.sum([get_aa_mass(s, verbose=verbose) for s in seq])
-            mass += get_pep_ion_mass_shift(ion_type)
+            if needs_proforma_parser(sequence):
+                mass = calc_proforma_mass(
+                    sequence, monoisotopic=False, ion_type=ion_type
+                )
+                plain_sequence = strip_proforma(sequence)
+            else:
+                plain_sequence = sequence.upper()
+                mass = np.sum(
+                    [get_aa_mass(s, verbose=verbose) for s in plain_sequence]
+                )
+                mass += get_pep_ion_mass_shift(ion_type)
     else:
-        seq = sequence.upper()
-        mass = np.sum([get_aa_mass(s, verbose=verbose) for s in seq])
-        mass += get_pep_ion_mass_shift(ion_type)
-    # print(sequence, mass)
+        if needs_proforma_parser(sequence):
+            mass = calc_proforma_mass(
+                sequence, monoisotopic=False, ion_type=ion_type
+            )
+            plain_sequence = strip_proforma(sequence)
+        else:
+            plain_sequence = sequence.upper()
+            mass = np.sum(
+                [get_aa_mass(s, verbose=verbose) for s in plain_sequence]
+            )
+            mass += get_pep_ion_mass_shift(ion_type)
+
+    modmass = 0.0
+    if all_cyst_ox and is_sequence:
+        modmass -= plain_sequence.upper().count("C") * mass_H
+
     # Look for pyroglutamate mod if set
-    if pyroglu and is_sequence and len(sequence) > 0:
-        if sequence[0].upper() == "E":
+    if pyroglu and is_sequence and len(plain_sequence) > 0:
+        if plain_sequence[0].upper() == "E":
             modmass -= mass_water
-        if sequence[0].upper() == "Q":
+        if plain_sequence[0].upper() == "Q":
             modmass -= mass_OH
 
     massoutput = np.round(mass + modmass, round_to)
@@ -292,30 +315,45 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
     if remove_nan and is_sequence and sequence.lower() == "nan":
         return 0.0
 
+    plain_sequence = sequence
     if allow_float:
         try:
             mass = float(sequence)
         except (TypeError, ValueError):
-            seq = sequence.upper()
-            mass = np.sum(
-                [get_aa_monoisotopic_mass(s, verbose=verbose) for s in seq]
-            )
-            mass += get_pep_ion_mass_shift(ion_type, monoisotopic=True)
+            if needs_proforma_parser(sequence):
+                mass = calc_proforma_mass(
+                    sequence, monoisotopic=True, ion_type=ion_type
+                )
+                plain_sequence = strip_proforma(sequence)
+            else:
+                plain_sequence = sequence.upper()
+                mass = np.sum([
+                    get_aa_monoisotopic_mass(s, verbose=verbose)
+                    for s in plain_sequence
+                ])
+                mass += get_pep_ion_mass_shift(ion_type, monoisotopic=True)
     else:
-        seq = sequence.upper()
-        mass = np.sum(
-            [get_aa_monoisotopic_mass(s, verbose=verbose) for s in seq]
-        )
-        mass += get_pep_ion_mass_shift(ion_type, monoisotopic=True)
+        if needs_proforma_parser(sequence):
+            mass = calc_proforma_mass(
+                sequence, monoisotopic=True, ion_type=ion_type
+            )
+            plain_sequence = strip_proforma(sequence)
+        else:
+            plain_sequence = sequence.upper()
+            mass = np.sum([
+                get_aa_monoisotopic_mass(s, verbose=verbose)
+                for s in plain_sequence
+            ])
+            mass += get_pep_ion_mass_shift(ion_type, monoisotopic=True)
 
     modmass = 0.0
     if all_cyst_ox and is_sequence:
-        modmass -= sequence.lower().count("c") * mass_H_monoisotopic
+        modmass -= plain_sequence.upper().count("C") * mass_H_monoisotopic
 
-    if pyroglu and is_sequence and len(sequence) > 0:
-        if sequence[0].upper() == "E":
+    if pyroglu and is_sequence and len(plain_sequence) > 0:
+        if plain_sequence[0].upper() == "E":
             modmass -= mass_water_monoisotopic
-        elif sequence[0].upper() == "Q":
+        elif plain_sequence[0].upper() == "Q":
             modmass -= mass_OH_monoisotopic
 
     return float(mass + modmass)
@@ -337,6 +375,8 @@ def calc_pep_fragments(sequence, ion_types=("b", "y"), monoisotopic=True):
     """
     if not isinstance(sequence, str):
         raise TypeError("sequence must be a string")
+    if needs_proforma_parser(sequence):
+        raise ValueError("Modified-sequence fragment generation is not yet supported")
     if isinstance(ion_types, str):
         ion_types = ion_types.replace(",", "").replace(" ", "")
 

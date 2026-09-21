@@ -4,6 +4,19 @@ import numpy as np
 import platform
 from pathlib import Path
 
+if __package__:
+    from .protein_mods import (
+        calc_proforma_mass,
+        needs_proforma_parser,
+        strip_proforma,
+    )
+else:
+    from protein_mods import (
+        calc_proforma_mass,
+        needs_proforma_parser,
+        strip_proforma,
+    )
+
 
 _system = platform.system()
 _library_names = {
@@ -621,6 +634,10 @@ def gen_isodist(
     """
     type = type.upper() if isinstance(type, str) else type
     method = method.upper() if isinstance(method, str) else method
+    if type == "PEPTIDE" and isinstance(input, str):
+        if needs_proforma_parser(input):
+            calc_proforma_mass(input)
+            input = strip_proforma(input)
     if type in ("ATOM", "FORMULA") and method != "FFT":
         raise ValueError("ATOM inputs support only the FFT method")
     if model_path is not None and method != "NN":

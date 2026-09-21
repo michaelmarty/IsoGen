@@ -274,6 +274,29 @@ default). These peptide-ion and RNA-terminal options adjust the mass-axis
 origin. The sequence-model intensity vector retains its standard terminal
 composition.
 
+### Modified proteins
+
+Protein mass axes accept supported
+[ProForma](https://github.com/HUPO-PSI/ProForma) annotations using UniMod,
+PSI-MOD, RESID, explicit mass shifts, formulas, and terminal or global fixed
+modifications:
+
+```python
+oxidized = isogen.isodist("EM[Oxidation]E", type="PEPTIDE", isolen=64)
+psi_mod_mass = isogen.calc_pep_monoisotopic_mass(
+    "EM[MOD:00719]E"
+)
+fixed_cysteine_mass = isogen.calc_pep_monoisotopic_mass(
+    "<[Carbamidomethyl]@C>ACDC"
+)
+```
+
+`J`, `O`, and `U` have defined masses; `B` and `Z` use the midpoint of their
+two possible residues. `X` requires an explicit known mass gap such as
+`X[+367.0537]`. For now, modifications change the mass axis but are stripped
+before isotope intensities are calculated. See the mass-calculation
+documentation for the supported subset and current limitations.
+
 From the command line:
 
 ```shell
@@ -326,17 +349,21 @@ python -m pip install -e ".[training]"
 
 ## Future Ideas
 
-Support UniMod nomenclature for peptide modifications.
+Add XL-MOD/GNO support and composition-aware isotope distributions for
+modified proteins.
 
 Explore reverse models to infer something about the sequence or input type from the isotope distribution. Perhaps explore the bounds of what a reasonable peptide sequence may be.
 
 ## CHANGELOG
 
+### 1.1.0
+
+Added ProForma modified-protein mass support for UniMod, PSI-MOD, RESID, and
+ambiguous or unusual amino acids.
+
 ### 1.0.11
 
 Added calc_pep_fragments to mass.py to allow for peptide fragment mass calculations. This isn't directly related to isotope distributions, but it is useful for other proteomics applications. 
-
-
 
 ### 1.0.10
 

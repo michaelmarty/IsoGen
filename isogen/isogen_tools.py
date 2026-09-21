@@ -6,10 +6,12 @@ if __package__:
     from .isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist, atom_formula_to_vector
     from .mass import calc_pep_monoisotopic_mass, calc_atom_monoisotopic_mass
     from .isogen import isodist
+    from .protein_mods import strip_proforma
 else:
     from isogenwrapper import fft_gen_isodist, fft_gen_seq_isodist, atom_formula_to_vector
     from mass import calc_pep_monoisotopic_mass, calc_atom_monoisotopic_mass
     from isogen import isodist
+    from protein_mods import strip_proforma
 
 elements = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt']
 edict = {}
@@ -188,23 +190,12 @@ def parse_chemical_formula(formula):
 def peptide_to_dist(peptide, isolen=128):
     """Generate an FFT peptide distribution from a sequence.
 
-    Bracketed elemental modifications are converted to a total mass before
-    dispatch because the native sequence interface accepts residue codes only.
+    ProForma annotations are removed because the native sequence interface
+    accepts residue codes only.
     """
     try:
-        mod_matches = re.findall(fullseq_pattern, peptide)
-        if len(mod_matches) > 0:
-            peptide_mass = peptide_to_mass(peptide)
-            if peptide_mass is None:
-                return None
-            return fft_gen_isodist(
-                peptide_mass,
-                type="PEPTIDE",
-                isolen=isolen,
-            )
-
         return fft_gen_seq_isodist(
-            peptide,
+            strip_proforma(peptide),
             type="PEPTIDE",
             isolen=isolen,
         )
@@ -216,19 +207,13 @@ def peptide_to_dist(peptide, isolen=128):
 def peptide_to_mass(peptide):
     """Calculate a modified peptide's neutral monoisotopic mass.
 
-    Bracketed strings are interpreted as elemental formulas and added to the
-    intact peptide mass.
+    ProForma names, accessions, formulas, and numeric shifts are supported.
     """
     try:
-        mod_matches = re.findall(fullseq_pattern, peptide)
-        mod_mass = 0
-        for mod in mod_matches:
-            mod_mass += calc_atom_monoisotopic_mass(mod.strip("[]"))
-        peptide = re.sub(fullseq_pattern, '', peptide)
         mass = calc_pep_monoisotopic_mass(peptide)
     except Exception:
         return None
-    return mass + mod_mass
+    return mass
 
 def add_nucleotide_to_dict(count, nuc_dict, seq_dict):
     for k,v in nuc_dict.items():
@@ -278,7 +263,7 @@ def rnaseq_to_formula(rna_seq):
 def peptide_to_vector(peptide):
     try:
         vec = np.zeros(20)
-        peptide = re.sub(fullseq_pattern, '', peptide)
+        peptide = strip_proforma(peptide)
         # Get counts of each amino acid
         counts = Counter(peptide)
 
@@ -290,7 +275,7 @@ def peptide_to_vector(peptide):
 
 
 def peptide_to_aacount(peptide):
-    peptide = re.sub(fullseq_pattern, '', peptide)
+    peptide = strip_proforma(peptide)
     return len(peptide)
 
 
