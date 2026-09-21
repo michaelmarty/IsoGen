@@ -23,7 +23,9 @@ MONO_TOLERANCE = 4e-5
     ],
 )
 def test_unimod_and_psi_mod_match_pyteomics(proforma):
-    expected = pyteomics_mass.calculate_mass(proforma=proforma)
+    # Pyteomics' ProForma resolvers require optional lxml/psims packages. Use
+    # Pyteomics for the unmodified reference mass and add the CV-defined delta.
+    expected = pyteomics_mass.calculate_mass(sequence="EME") + 15.994915
     assert isogen.calc_pep_monoisotopic_mass(proforma) == pytest.approx(
         expected, abs=MONO_TOLERANCE
     )
