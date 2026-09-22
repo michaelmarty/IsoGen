@@ -5,6 +5,7 @@ import os
 if __package__:
     from .isogenwrapper import atom_formula_to_vector
     from .protein_mods import (
+        _calc_proforma_fragments,
         calc_proforma_mass,
         needs_proforma_parser,
         strip_proforma,
@@ -12,6 +13,7 @@ if __package__:
 else:
     from isogenwrapper import atom_formula_to_vector
     from protein_mods import (
+        _calc_proforma_fragments,
         calc_proforma_mass,
         needs_proforma_parser,
         strip_proforma,
@@ -72,6 +74,7 @@ mass_H = 1.00794
 mass_proton = 1.00727647
 mass_CO = 28.0101
 mass_NH3 = 17.03052
+mass_NH2 = mass_NH3 - mass_H
 mass_CO2 = 44.0095
 
 # Monoisotopic terminal-group masses.
@@ -82,29 +85,72 @@ mass_HPO4_monoisotopic = 95.961245509
 mass_H_monoisotopic = 1.007825032
 mass_CO_monoisotopic = 27.994914620
 mass_NH3_monoisotopic = 17.026549101
+mass_NH2_monoisotopic = mass_NH3_monoisotopic - mass_H_monoisotopic
 mass_CO2_monoisotopic = 43.989829239
 
 # Neutral terminal-group shifts relative to the sum of amino-acid residue
-# masses. a/b/c are N-terminal fragments; x/y/z are C-terminal fragments.
+# masses. a/b/c are N-terminal fragments; x/y/z/z' are C-terminal fragments.
 pep_ion_mass_shifts = {
     "H2O": mass_water,
     "A": -mass_CO,
+    "A+1": -mass_CO + mass_H,
     "B": 0.0,
     "C": mass_NH3,
     "X": mass_CO2,
+    "X+1": mass_CO2 + mass_H,
     "Y": mass_water,
+    "Y-1": mass_water - mass_H,
     "Z": mass_water - mass_NH3,
+    "Z'": mass_water - mass_NH2,
 }
 
 pep_ion_mass_shifts_monoisotopic = {
     "H2O": mass_water_monoisotopic,
     "A": -mass_CO_monoisotopic,
+    "A+1": -mass_CO_monoisotopic + mass_H_monoisotopic,
     "B": 0.0,
     "C": mass_NH3_monoisotopic,
     "X": mass_CO2_monoisotopic,
+    "X+1": mass_CO2_monoisotopic + mass_H_monoisotopic,
     "Y": mass_water_monoisotopic,
+    "Y-1": mass_water_monoisotopic - mass_H_monoisotopic,
     "Z": mass_water_monoisotopic - mass_NH3_monoisotopic,
+    "Z'": mass_water_monoisotopic - mass_NH2_monoisotopic,
 }
+
+_PEP_ION_ALIASES = {"z+1": "z'", "z•": "z'", "z·": "z'", "z.": "z'"}
+_PEP_ION_TYPES = frozenset({
+    "a", "a+1", "b", "c", "x", "x+1", "y", "y-1", "z", "z'",
+})
+_FRAGMENTATION_ION_TYPES = {
+    "CID": ("b", "y"),
+    "HCD": ("b", "y"),
+    "SID": ("b", "y"),
+    "IRMPD": ("b", "y"),
+    "ETD": ("c", "z'"),
+    "ECD": ("c", "z'"),
+    "ETHCD": ("b", "y", "c", "z'"),
+    "BYCZ*": ("b", "y", "c", "z'"),
+    "UVPD": ("a", "b", "c", "x", "y", "z'"),
+    "UVPD4": ("a", "a+1", "x+1", "y-1"),
+    "UVPD6": ("a", "a+1", "x+1", "x", "y-1", "z'"),
+    "UVPD9": ("a", "a+1", "b", "c", "x", "x+1", "y", "y-1", "z'"),
+}
+
+
+def _normalize_pep_ion_type(ion_type):
+    if not isinstance(ion_type, str):
+        raise TypeError("ion types must be strings")
+    normalized = ion_type.lower()
+    return _PEP_ION_ALIASES.get(normalized, normalized)
+
+
+def _pep_fragment_name(ion_type, length):
+    match = re.fullmatch(r"([axyz])([+-]1)", ion_type)
+    return (
+        f"{match.group(1)}{length}{match.group(2)}"
+        if match else f"{ion_type}{length}"
+    )
 
 
 def get_aa_mass(letter, verbose=False):
@@ -217,7 +263,7 @@ def get_pep_ion_mass_shift(ion_type="H2O", monoisotopic=False):
     if not isinstance(ion_type, str):
         raise TypeError("ion_type must be a string")
 
-    normalized_type = ion_type.upper()
+    normalized_type = _normalize_pep_ion_type(ion_type).upper()
     shifts = pep_ion_mass_shifts_monoisotopic if monoisotopic else pep_ion_mass_shifts
     try:
         return shifts[normalized_type]
@@ -238,8 +284,8 @@ def calc_pep_mass(sequence, allow_float=True, remove_nan=True, all_cyst_ox=False
         pyroglu: Apply an N-terminal pyroglutamate loss for glutamate or
             glutamine.
         round_to: Number of decimal places in the returned value.
-        ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z for a supplied
-            N- or C-terminal fragment sequence.
+        ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z/z' for a
+            supplied N- or C-terminal fragment sequence.
         verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
@@ -304,8 +350,8 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
         all_cyst_ox: Remove one monoisotopic hydrogen mass per cysteine.
         pyroglu: Apply an N-terminal pyroglutamate loss for glutamate or
             glutamine.
-        ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z for a supplied
-            N- or C-terminal fragment sequence.
+        ion_type: ``H2O`` for an intact protein, or a/b/c/x/y/z/z' for a
+            supplied N- or C-terminal fragment sequence.
         verbose: Print invalid residue codes. Defaults to ``False``.
 
     Returns:
@@ -359,36 +405,78 @@ def calc_pep_monoisotopic_mass(sequence, allow_float=True, remove_nan=True, all_
     return float(mass + modmass)
 
 
-def calc_pep_fragments(sequence, ion_types=("b", "y"), monoisotopic=True):
+def calc_pep_fragments(
+    sequence,
+    ion_types=None,
+    monoisotopic=True,
+    ambiguous_rule="reject",
+    fragmentation_type=None,
+):
     """Calculate the neutral masses of a peptide's backbone fragments.
 
     Args:
         sequence: Amino-acid sequence.
-        ion_types: Any combination of a/b/c/x/y/z ion types. A compact string
-            such as ``"by"`` or an iterable such as ``("a", "y")`` is
-            accepted.
+        ion_types: Any combination of supported ion types. A compact
+            string such as ``"by"`` or ``"cz'"``, or an iterable such as
+            ``("a", "z'")``, is accepted. Overrides ``fragmentation_type``.
         monoisotopic: Use monoisotopic masses; use average masses when false.
+        ambiguous_rule: ``"reject"`` omits fragments whose mass is ambiguous.
+            ``"both"`` returns each possibility with a numbered ion name.
+        fragmentation_type: Named default series for CID, HCD, SID, IRMPD,
+            ETD, ECD, EThcD, BYCZ*, UVPD, UVPD4, UVPD6, or UVPD9.
 
     Returns:
         A dictionary mapping proteomics ion names (for example, ``"b1"`` and
-        ``"y2"``) to neutral masses in daltons.
+        ``"y2"``) to neutral masses in daltons. Ambiguous possibilities use
+        numbered names such as ``"b2#1"`` and ``"b2#2"``.
     """
     if not isinstance(sequence, str):
         raise TypeError("sequence must be a string")
-    if needs_proforma_parser(sequence):
-        raise ValueError("Modified-sequence fragment generation is not yet supported")
+    if ambiguous_rule not in {"reject", "both"}:
+        raise ValueError("ambiguous_rule must be 'reject' or 'both'")
+    if ion_types is None:
+        if fragmentation_type is None:
+            ion_types = ("b", "y")
+        elif not isinstance(fragmentation_type, str):
+            raise TypeError("fragmentation_type must be a string")
+        else:
+            try:
+                ion_types = _FRAGMENTATION_ION_TYPES[fragmentation_type.upper()]
+            except KeyError as exception:
+                choices = ", ".join(_FRAGMENTATION_ION_TYPES)
+                raise ValueError(
+                    f"Unknown fragmentation_type {fragmentation_type!r}; expected one of: {choices}"
+                ) from exception
     if isinstance(ion_types, str):
-        ion_types = ion_types.replace(",", "").replace(" ", "")
+        compact_types = ion_types.replace(",", "").replace(" ", "").lower()
+        ion_types = re.findall(
+            r"a\+1|x\+1|y-1|z\+1|z['•·.]|[abcxyz]", compact_types
+        )
+        if "".join(ion_types) != compact_types:
+            raise ValueError(
+                f"Unknown ion types {compact_types!r}; expected a, b, c, x, y, z, or z'"
+            )
 
     try:
-        normalized_types = tuple(ion_type.lower() for ion_type in ion_types)
+        normalized_types = tuple(
+            _normalize_pep_ion_type(ion_type) for ion_type in ion_types
+        )
     except (AttributeError, TypeError) as exception:
         raise TypeError("ion_types must contain strings") from exception
     for ion_type in normalized_types:
-        if ion_type not in {"a", "b", "c", "x", "y", "z"}:
+        if ion_type not in _PEP_ION_TYPES:
             raise ValueError(
-                f"Unknown ion type {ion_type!r}; expected a, b, c, x, y, or z"
+                f"Unknown ion type {ion_type!r}; expected one of: "
+                + ", ".join(sorted(_PEP_ION_TYPES))
             )
+
+    if needs_proforma_parser(sequence):
+        return _calc_proforma_fragments(
+            sequence,
+            ion_types=normalized_types,
+            monoisotopic=monoisotopic,
+            ambiguous_rule=ambiguous_rule,
+        )
 
     mass_function = (
         calc_pep_monoisotopic_mass if monoisotopic else calc_pep_mass
@@ -398,10 +486,10 @@ def calc_pep_fragments(sequence, ion_types=("b", "y"), monoisotopic=True):
         for length in range(1, len(sequence)):
             fragment = (
                 sequence[:length]
-                if ion_type in {"a", "b", "c"}
+                if ion_type[0] in {"a", "b", "c"}
                 else sequence[-length:]
             )
-            fragments[f"{ion_type}{length}"] = float(
+            fragments[_pep_fragment_name(ion_type, length)] = float(
                 mass_function(fragment, ion_type=ion_type)
             )
     return fragments

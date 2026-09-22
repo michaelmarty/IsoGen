@@ -10,6 +10,60 @@ import isogen
 
 
 MONO_TOLERANCE = 4e-5
+CA_SEQUENCE = (
+    "S[Acetylation]HHWGYGKHNGPEHWHKDFPIANGERQSPVDIDTKAVVQDPALKPLALVYGEAT"
+    "SRRMVNNGHSFNVEYDDSQDKAVLKDGPLTGTYRLVQFHFHWGSSDDQGSEHTVDRKKYAAELHLV"
+    "HWNTKYGDFGTAAQQPDGLAVVGVFLKVGDANPALQKVLDALDSIKTKGKSTDFPNFDPGSLLPNV"
+    "LDYWTYPGSLTTPPLLESVTWIVLKEPISVSSQQMLKFRTLNFNAEGEPELLMLANWRPAQPLKNR"
+    "QVRGFPK"
+)
+CA_PLAIN_SEQUENCE_LENGTH = 259
+CA_EXPERIMENTAL_MASSES = tuple(
+    float(value)
+    for value in (
+        Path(__file__).with_name("data") / "ca_etd_masses.txt"
+    ).read_text(encoding="utf-8-sig").split()
+)
+
+
+def test_ca_sequence_fragment_coverage_is_60_to_61_percent():
+    predicted_fragments = isogen.calc_pep_fragments(
+        CA_SEQUENCE, ion_types=("c", "z'")
+    )
+    match_candidates = sorted(
+        (
+            abs(experimental - predicted) / predicted * 1e6,
+            ion,
+            predicted,
+            experimental,
+        )
+        for ion, predicted in predicted_fragments.items()
+        for experimental in CA_EXPERIMENTAL_MASSES
+        if abs(experimental - predicted) / predicted * 1e6 <= 20
+    )
+
+    matches = []
+    matched_ions = set()
+    matched_features = set()
+    for _, ion, predicted, experimental in match_candidates:
+        if ion in matched_ions or experimental in matched_features:
+            continue
+        matched_ions.add(ion)
+        matched_features.add(experimental)
+        matches.append((ion, predicted, experimental))
+
+    cleavage_sites = {
+        int(ion.lstrip("abcxyz'").partition("#")[0])
+        if ion.startswith("c")
+        else CA_PLAIN_SEQUENCE_LENGTH
+        - int(ion.lstrip("abcxyz'").partition("#")[0])
+        for ion, _, _ in matches
+    }
+    coverage = len(cleavage_sites) / (CA_PLAIN_SEQUENCE_LENGTH - 1) * 100
+
+    assert len(matches) == 159
+    assert len(cleavage_sites) == 155
+    assert 60 <= coverage <= 61
 
 
 @pytest.mark.parametrize(
@@ -215,3 +269,150 @@ def test_modification_resource_is_present_and_compact():
     resource = Path(isogen.__file__).with_name("resources") / "protein_modifications.json.gz"
     assert resource.is_file()
     assert resource.stat().st_size < 250_000
+
+
+def test_fragments_include_only_modifications_on_their_side_of_cleavage():
+    observed = isogen.calc_pep_fragments(
+        "EM[Oxidation]E", ion_types="by"
+    )
+    oxidation = 15.994915
+
+    assert observed["b1"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="E", ion_type="b"),
+        abs=MONO_TOLERANCE,
+    )
+    assert observed["b2"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="EM", ion_type="b")
+        + oxidation,
+        abs=MONO_TOLERANCE,
+    )
+    assert observed["y2"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="ME", ion_type="y")
+        + oxidation,
+        abs=MONO_TOLERANCE,
+    )
+
+
+def test_modified_z_prime_is_one_hydrogen_heavier_than_z():
+    observed = isogen.calc_pep_fragments(
+        "PEP[Oxidation]TIDE", ion_types=("z", "z'")
+    )
+
+    assert observed["z'4"] - observed["z4"] == pytest.approx(
+        pyteomics_mass.calculate_mass(formula="H"), abs=1e-9
+    )
+
+
+def test_fragmentation_type_applies_to_proforma_sequences():
+    observed = isogen.calc_pep_fragments(
+        "PEP[Oxidation]TIDE", fragmentation_type="ECD"
+    )
+    expected = isogen.calc_pep_fragments(
+        "PEP[Oxidation]TIDE", ion_types=("c", "z'")
+    )
+
+    assert observed == expected
+
+
+def test_fragment_terminal_modifications_follow_the_retained_terminus():
+    observed = isogen.calc_pep_fragments(
+        "[Acetyl]-PEPTIDE-[Amidated]", ion_types="by"
+    )
+
+    assert observed["b1"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="P", ion_type="b")
+        + 42.010565,
+        abs=MONO_TOLERANCE,
+    )
+    assert observed["y1"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="E", ion_type="y")
+        - 0.984016,
+        abs=MONO_TOLERANCE,
+    )
+
+
+def test_global_fixed_modifications_are_applied_at_each_retained_site():
+    observed = isogen.calc_pep_fragments(
+        "<[Carbamidomethyl]@C>ACDC", ion_types="by"
+    )
+    carbamidomethyl = 57.021464
+
+    assert observed["b2"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="AC", ion_type="b")
+        + carbamidomethyl,
+        abs=MONO_TOLERANCE,
+    )
+    assert observed["y3"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="CDC", ion_type="y")
+        + 2 * carbamidomethyl,
+        abs=MONO_TOLERANCE,
+    )
+
+
+def test_ambiguous_localization_fragments_default_to_reject():
+    observed = isogen.calc_pep_fragments(
+        "AS[#g1]T[Phospho#g1]K", ion_types="b"
+    )
+
+    assert set(observed) == {"b1", "b3"}
+    assert observed["b3"] == pytest.approx(
+        pyteomics_mass.calculate_mass(sequence="AST", ion_type="b")
+        + 79.966331,
+        abs=MONO_TOLERANCE,
+    )
+
+
+def test_ambiguous_rule_both_returns_all_distinct_fragment_masses():
+    observed = isogen.calc_pep_fragments(
+        "AS[#g1]T[Phospho#g1]K",
+        ion_types="b",
+        ambiguous_rule="both",
+    )
+    unmodified = pyteomics_mass.calculate_mass(sequence="AS", ion_type="b")
+
+    assert "b2" not in observed
+    assert observed["b2#1"] == pytest.approx(unmodified, abs=MONO_TOLERANCE)
+    assert observed["b2#2"] == pytest.approx(
+        unmodified + 79.966331, abs=MONO_TOLERANCE
+    )
+
+
+def test_multiple_unlocalized_modifications_respect_available_sites():
+    sequence = "[Phospho]^2?PEP"
+    assert isogen.calc_pep_fragments(sequence, ion_types="b") == {}
+
+    observed = isogen.calc_pep_fragments(
+        sequence, ion_types="b", ambiguous_rule="both"
+    )
+    b1 = pyteomics_mass.calculate_mass(sequence="P", ion_type="b")
+    b2 = pyteomics_mass.calculate_mass(sequence="PE", ion_type="b")
+    phospho = 79.966331
+    assert observed["b1#1"] == pytest.approx(b1, abs=MONO_TOLERANCE)
+    assert observed["b1#2"] == pytest.approx(
+        b1 + phospho, abs=MONO_TOLERANCE
+    )
+    assert observed["b2#1"] == pytest.approx(
+        b2 + phospho, abs=MONO_TOLERANCE
+    )
+    assert observed["b2#2"] == pytest.approx(
+        b2 + 2 * phospho, abs=MONO_TOLERANCE
+    )
+
+
+def test_ambiguous_residue_fragments_follow_ambiguity_rule():
+    assert "b2" not in isogen.calc_pep_fragments("ABK", ion_types="b")
+
+    observed = isogen.calc_pep_fragments(
+        "ABK", ion_types="b", ambiguous_rule="both"
+    )
+    expected = sorted((
+        pyteomics_mass.calculate_mass(sequence="AD", ion_type="b"),
+        pyteomics_mass.calculate_mass(sequence="AN", ion_type="b"),
+    ))
+    assert observed["b2#1"] == pytest.approx(expected[0], abs=MONO_TOLERANCE)
+    assert observed["b2#2"] == pytest.approx(expected[1], abs=MONO_TOLERANCE)
+
+
+def test_fragment_ambiguity_rule_is_validated():
+    with pytest.raises(ValueError, match="ambiguous_rule"):
+        isogen.calc_pep_fragments("PEPTIDE", ambiguous_rule="midpoint")

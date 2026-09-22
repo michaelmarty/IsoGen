@@ -78,11 +78,29 @@ by the current isotope-intensity approximation.
 ### `calc_pep_fragments`
 
 ```python
-calc_pep_fragments(sequence, ion_types=("b", "y"), monoisotopic=True)
+calc_pep_fragments(
+    sequence,
+    ion_types=None,
+    monoisotopic=True,
+    ambiguous_rule="reject",
+    fragmentation_type=None,
+)
 ```
 
 Return all backbone-cleavage fragment masses in a dictionary keyed by ion
-name. Any combination of `a`, `b`, `c`, `x`, `y`, and `z` series is accepted.
+name. `ion_types` accepts any combination of `a`, `a+1`, `b`, `c`, `x`,
+`x+1`, `y`, `y-1`, `z`, and `z'`. The aliases `z+1`, `z•`, `z·`, and
+`z.` normalize to `z'`. `z` matches Pyteomics; `z'` is one neutral hydrogen
+heavier.
+
+When `ion_types` is omitted, `fragmentation_type` selects the conventional
+series for `CID`, `HCD`, `SID`, `IRMPD`, `ETD`, `ECD`, `EThcD`, `BYCZ*`,
+`UVPD`, `UVPD4`, `UVPD6`, or `UVPD9`. Explicit `ion_types` take precedence.
+If both arguments are omitted, the default remains `b`/`y`.
+ProForma modifications are retained when their site is part of a fragment.
+By default, ions whose mass depends on an ambiguous localization or residue
+are omitted. Set `ambiguous_rule="both"` to return their possible masses as a
+series of numbered keys ordered by mass, such as `b2#1` and `b2#2`.
 
 ### `calc_pep_mass_axis`
 

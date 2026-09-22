@@ -352,14 +352,30 @@ python -m pip install -e ".[training]"
 Add XL-MOD/GNO support and composition-aware isotope distributions for
 modified proteins.
 
+Consider a configurable limit for combinatorial ambiguous-fragment variants,
+probability-weighted fragment masses from ProForma localization scores, and
+support for fragment charge states, neutral losses, and labile diagnostic
+ions.
+
 Explore reverse models to infer something about the sequence or input type from the isotope distribution. Perhaps explore the bounds of what a reasonable peptide sequence may be.
 
 ## CHANGELOG
+
+### 1.1.1
+
+`calc_pep_fragments` now accepts ProForma sequences. Ambiguous fragments are
+omitted by default or returned with numbered keys such as `b2#1` and `b2#2`
+using `ambiguous_rule="both"`.
+
+Added `z'` aliases and fragmentation-method presets for CID, HCD, SID,
+IRMPD, ETD, ECD, EThcD, BYCZ*, UVPD, UVPD4, UVPD6, and UVPD9 fragment
+ladders.
 
 ### 1.1.0
 
 Added ProForma modified-protein mass support for UniMod, PSI-MOD, RESID, and
 ambiguous or unusual amino acids.
+
 
 ### 1.0.11
 

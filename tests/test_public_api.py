@@ -274,6 +274,105 @@ def test_calc_pep_fragments_matches_pyteomics(monoisotopic):
             )
 
 
+@pytest.mark.parametrize("monoisotopic", [True, False])
+def test_z_prime_is_one_hydrogen_heavier_than_pyteomics_z(monoisotopic):
+    sequence = "PEPTIDE"
+    observed = isogen.calc_pep_fragments(
+        sequence,
+        ion_types="cz'",
+        monoisotopic=monoisotopic,
+    )
+    expected = pyteomics_mass.calculate_mass(
+        sequence=sequence[-3:],
+        ion_type="z",
+        average=not monoisotopic,
+    ) + pyteomics_mass.calculate_mass(
+        formula="H", average=not monoisotopic
+    )
+    tolerance = 3e-5 if monoisotopic else 0.02
+
+    assert "c3" in observed
+    assert observed["z'3"] == pytest.approx(expected, abs=tolerance)
+
+
+@pytest.mark.parametrize("alias", ["z+1", "z•", "z·", "z."])
+def test_z_prime_aliases_use_the_same_mass_and_canonical_name(alias):
+    expected = isogen.calc_pep_fragments("PEPTIDE", ion_types="z'")
+    observed = isogen.calc_pep_fragments("PEPTIDE", ion_types=alias)
+
+    assert observed == expected
+
+
+@pytest.mark.parametrize("ion_type", ["a+1", "x+1", "y-1"])
+def test_uvpd_hydrogen_shifted_ions_match_pyteomics(ion_type):
+    sequence = "PEPTIDE"
+    fragment = sequence[:3] if ion_type.startswith("a") else sequence[-3:]
+    observed = isogen.calc_pep_monoisotopic_mass(
+        fragment, ion_type=ion_type
+    )
+    if ion_type == "y-1":
+        expected = pyteomics_mass.calculate_mass(
+            sequence=fragment, ion_type="y"
+        ) - pyteomics_mass.calculate_mass(formula="H")
+    else:
+        expected = pyteomics_mass.calculate_mass(
+            sequence=fragment, ion_type=ion_type
+        )
+
+    assert observed == pytest.approx(expected, abs=3e-5)
+
+
+@pytest.mark.parametrize(
+    ("fragmentation_type", "ion_types"),
+    [
+        ("CID", ("b", "y")),
+        ("HCD", ("b", "y")),
+        ("SID", ("b", "y")),
+        ("IRMPD", ("b", "y")),
+        ("ETD", ("c", "z'")),
+        ("ECD", ("c", "z'")),
+        ("EThcD", ("b", "y", "c", "z'")),
+        ("BYCZ*", ("b", "y", "c", "z'")),
+        ("UVPD", ("a", "b", "c", "x", "y", "z'")),
+        ("UVPD4", ("a", "a+1", "x+1", "y-1")),
+        ("UVPD6", ("a", "a+1", "x+1", "x", "y-1", "z'")),
+        (
+            "UVPD9",
+            ("a", "a+1", "b", "c", "x", "x+1", "y", "y-1", "z'"),
+        ),
+    ],
+)
+def test_fragmentation_type_selects_expected_ion_series(
+    fragmentation_type, ion_types
+):
+    observed = isogen.calc_pep_fragments(
+        "PEP", fragmentation_type=fragmentation_type
+    )
+
+    def ion_name(ion_type, length):
+        if ion_type in {"a+1", "x+1", "y-1"}:
+            return f"{ion_type[0]}{length}{ion_type[1:]}"
+        return f"{ion_type}{length}"
+
+    assert list(observed) == [
+        ion_name(ion_type, length)
+        for ion_type in ion_types
+        for length in (1, 2)
+    ]
+
+
+def test_explicit_ion_types_override_fragmentation_type():
+    observed = isogen.calc_pep_fragments(
+        "PEP", ion_types="a", fragmentation_type="ETD"
+    )
+    assert set(observed) == {"a1", "a2"}
+
+
+def test_unknown_fragmentation_type_is_rejected():
+    with pytest.raises(ValueError, match="fragmentation_type"):
+        isogen.calc_pep_fragments("PEP", fragmentation_type="unknown")
+
+
 @pytest.mark.parametrize(
     ("kind", "sequence", "formulas"),
     [

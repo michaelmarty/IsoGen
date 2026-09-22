@@ -54,8 +54,7 @@ it must carry a complete signed mass gap, for example
 `RTAAX[+367.0537]WT`; bare `X` raises `ValueError`.
 
 XL-MOD, GNO/GNOme, cross-links, branched peptides, isotope replacement, and
-multi-peptidoform expressions are not yet supported. `calc_pep_fragments`
-also remains limited to unmodified sequences.
+multi-peptidoform expressions are not yet supported.
 
 For `isodist`, ProForma annotations affect the mass-axis origin but are
 removed before FFT, NN, or BRAIN calculates intensities. Thus the current
@@ -76,18 +75,54 @@ The supported `ion_type` values describe neutral terminal compositions:
 | --- | --- | --- |
 | `H2O` | Full protein | +H2O |
 | `a` | N-terminal fragment | -CO |
+| `a+1` | N-terminal fragment | -CO+H |
 | `b` | N-terminal fragment | none |
 | `c` | N-terminal fragment | +NH3 |
 | `x` | C-terminal fragment | +CO2 |
+| `x+1` | C-terminal fragment | +CO2+H |
 | `y` | C-terminal fragment | +H2O |
-| `z` | C-terminal fragment | +H2O-NH3 |
+| `y-1` | C-terminal fragment | +H2O-H |
+| `z` | C-terminal fragment | +H2O-NH3 (Pyteomics `z`) |
+| `z'` | C-terminal fragment | +H2O-NH2 (one H above `z`) |
+
+`z+1`, `z•`, `z·`, and `z.` are accepted as aliases for `z'`.
+
+`calc_pep_fragments` can select ion series by fragmentation method:
+
+| `fragmentation_type` | Ion series |
+| --- | --- |
+| `CID`, `HCD`, `SID`, `IRMPD` | `b`, `y` |
+| `ETD`, `ECD` | `c`, `z'` |
+| `EThcD`, `BYCZ*` | `b`, `y`, `c`, `z'` |
+| `UVPD` | `a`, `b`, `c`, `x`, `y`, `z'` |
+| `UVPD4` | `a`, `a+1`, `x+1`, `y-1` |
+| `UVPD6` | `a`, `a+1`, `x+1`, `x`, `y-1`, `z'` |
+| `UVPD9` | `a`, `a+1`, `b`, `c`, `x`, `x+1`, `y`, `y-1`, `z'` |
 
 ```python
 b6_mass = isogen.calc_pep_monoisotopic_mass("PEPTID", ion_type="b")
 y6_mass = isogen.calc_pep_monoisotopic_mass("EPTIDE", ion_type="y")
 fragments = isogen.calc_pep_fragments("PEPTIDE")
 # {"b1": ..., "b2": ..., ..., "y1": ..., "y2": ..., ...}
+ecd_fragments = isogen.calc_pep_fragments("PEPTIDE", ion_types=("c", "z'"))
+uvpd_fragments = isogen.calc_pep_fragments("PEPTIDE", fragmentation_type="UVPD9")
+
+modified = isogen.calc_pep_fragments("EM[Oxidation]E")
+ambiguous = isogen.calc_pep_fragments(
+    "AS[#g1]T[Phospho#g1]K", ambiguous_rule="both"
+)
+# A cleavage separating the candidate sites produces "b2#1" and "b2#2".
 ```
+
+Supplying `ion_types` explicitly overrides `fragmentation_type`.
+
+Localized, terminal, global fixed, region-localized, labile, and unlocalized
+ProForma modifications are supported. The default `ambiguous_rule="reject"`
+omits any fragment with more than one possible mass. With
+`ambiguous_rule="both"`, each distinct possibility is returned as a float
+under a numbered key such as `b2#1`, ordered by increasing mass. Ambiguous
+`B` and `Z` residues follow the same rule. `J` remains unambiguous by mass
+because isoleucine and leucine have equal residue masses.
 
 These are neutral masses. Charge and proton/adduct masses are not applied.
 When used through `isodist`, `ion_type` changes the mass-axis origin. The

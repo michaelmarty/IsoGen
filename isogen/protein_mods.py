@@ -77,7 +77,7 @@ def _outside_character(text, target):
     return False
 
 
-def _parse_core(text):
+def _parse_core(text, offset=0):
     sequence = []
     modifications = []
     x_gaps = []
@@ -90,12 +90,13 @@ def _parse_core(text):
             if residue not in PROFORMA_AMINO_ACIDS:
                 raise ValueError("Unknown amino-acid code: {!r}".format(character))
             sequence.append(residue)
+            position = offset + len(sequence) - 1
             index += 1
             tags = []
             while index < len(text) and text[index] == "[":
                 end = _matching(text, index, "[", "]")
                 tag = text[index + 1:end]
-                modifications.append((tag, residue))
+                modifications.append((tag, residue, frozenset({position})))
                 tags.append(tag)
                 index = end + 1
             if residue == "X":
@@ -103,8 +104,9 @@ def _parse_core(text):
             continue
         if character == "(":
             end = _matching(text, index, "(", ")")
+            region_start = offset + len(sequence)
             region_sequence, region_mods, region_x, region_terminal = _parse_core(
-                text[index + 1:end]
+                text[index + 1:end], region_start
             )
             sequence.extend(region_sequence)
             modifications.extend(region_mods)
@@ -113,7 +115,10 @@ def _parse_core(text):
             index = end + 1
             while index < len(text) and text[index] == "[":
                 tag_end = _matching(text, index, "[", "]")
-                modifications.append((text[index + 1:tag_end], None))
+                positions = frozenset(
+                    range(region_start, region_start + len(region_sequence))
+                )
+                modifications.append((text[index + 1:tag_end], None, positions))
                 index = tag_end + 1
             continue
         if character == "-" and index + 1 < len(text) and text[index + 1] == "[":
@@ -121,7 +126,7 @@ def _parse_core(text):
             index += 1
             while index < len(text) and text[index] == "[":
                 end = _matching(text, index, "[", "]")
-                modifications.append((text[index + 1:end], "C-term"))
+                modifications.append((text[index + 1:end], "C-term", "C-term"))
                 index = end + 1
             if index != len(text):
                 raise ValueError("Unexpected text after a C-terminal modification")
@@ -164,7 +169,7 @@ def _parse(sequence):
 
     while text.startswith("{"):
         end = _matching(text, 0, "{", "}")
-        modifications.append((text[1:end], None))
+        modifications.append((text[1:end], None, None))
         text = text[end + 1:]
 
     while text.startswith("["):
@@ -175,10 +180,10 @@ def _parse(sequence):
             count = int(occurrence.group(1)) if occurrence else 1
             if count < 1:
                 raise ValueError("Unlocalized modification count must be positive")
-            modifications.extend((text[1:end], None) for _ in range(count))
+            modifications.extend((text[1:end], None, None) for _ in range(count))
             text = remainder[occurrence.end():] if occurrence else remainder[1:]
         elif remainder.startswith("-"):
-            modifications.append((text[1:end], "N-term"))
+            modifications.append((text[1:end], "N-term", "N-term"))
             terminal = True
             text = text[end + 2:]
         else:
@@ -196,10 +201,17 @@ def _parse(sequence):
         for selector in selectors:
             normalized = selector.lower().replace("protein ", "")
             if len(selector) == 1 and selector.upper() in PROFORMA_AMINO_ACIDS:
-                for _ in range(base_sequence.count(selector.upper())):
-                    modifications.append((tag, selector.upper()))
+                positions = [
+                    index for index, residue in enumerate(base_sequence)
+                    if residue == selector.upper()
+                ]
+                modifications.extend(
+                    (tag, selector.upper(), frozenset({position}))
+                    for position in positions
+                )
             elif normalized in {"n-term", "c-term"}:
-                modifications.append((tag, normalized[0].upper() + normalized[1:]))
+                site = normalized[0].upper() + normalized[1:]
+                modifications.append((tag, site, site))
                 terminal = True
             else:
                 raise ValueError("Unsupported global modification selector: {!r}".format(selector))
@@ -371,6 +383,127 @@ def _tag_mass(tag, site, monoisotopic):
     return values[0]
 
 
+def _fragment_mass_options(sequence, modifications, ion_type, length, monoisotopic):
+    """Return the distinct masses possible for one backbone fragment."""
+    if __package__:
+        from . import mass as base_mass
+    else:
+        import mass as base_mass
+
+    masses = (
+        base_mass.aa_masses_monoisotopic
+        if monoisotopic else base_mass.aa_masses
+    )
+    residue_options = {
+        **{residue: (mass,) for residue, mass in masses.items()},
+        "J": (masses["I"],),
+        "B": (masses["D"], masses["N"]),
+        "Z": (masses["E"], masses["Q"]),
+        "O": (237.147727 if monoisotopic else 237.29816,),
+        "U": (150.953634 if monoisotopic else 150.0379,),
+        "X": (0.0,),
+    }
+    size = len(sequence)
+    positions = (
+        frozenset(range(length))
+        if ion_type[0] in {"a", "b", "c"}
+        else frozenset(range(size - length, size))
+    )
+    options = [base_mass.get_pep_ion_mass_shift(
+        ion_type, monoisotopic=monoisotopic
+    )]
+    for position in sorted(positions):
+        options = sorted({
+            round(total + residue_mass, 12)
+            for total in options
+            for residue_mass in residue_options[sequence[position]]
+        })
+
+    groups = {}
+    for tag, _, candidate_positions in modifications:
+        match = _AMBIGUITY_SUFFIX.search(tag)
+        if match and isinstance(candidate_positions, frozenset):
+            groups.setdefault(match.group(1), set()).update(candidate_positions)
+
+    modification_options = []
+    for tag, site, candidate_positions in modifications:
+        if tag.strip().startswith("#"):
+            continue
+        is_unlocalized = candidate_positions is None
+        match = _AMBIGUITY_SUFFIX.search(tag)
+        if match:
+            candidate_positions = frozenset(groups[match.group(1)])
+        elif candidate_positions is None:
+            candidate_positions = frozenset(range(size))
+        modification_options.append(
+            (_tag_mass(tag, site, monoisotopic), candidate_positions, is_unlocalized)
+        )
+
+    # Repeated unlocalized modifications share a site pool and cannot occupy
+    # more candidate sites than exist on either side of a cleavage.
+    counted = {}
+    for mass, candidates, is_unlocalized in modification_options:
+        key = (mass, candidates, is_unlocalized)
+        counted[key] = counted.get(key, 0) + 1
+    for (modification_mass, candidates, is_unlocalized), count in counted.items():
+        if candidates == "N-term":
+            counts = (count,) if ion_type[0] in {"a", "b", "c"} else (0,)
+        elif candidates == "C-term":
+            counts = (count,) if ion_type[0] in {"x", "y", "z"} else (0,)
+        else:
+            inside = len(positions & candidates)
+            outside = len(candidates) - inside
+            if is_unlocalized:
+                minimum = max(0, count - outside)
+                maximum = min(count, inside)
+                counts = range(minimum, maximum + 1)
+            elif not inside:
+                counts = (0,)
+            elif not outside:
+                counts = (count,)
+            else:
+                counts = range(count + 1)
+        options = sorted({
+            round(total + occurrence_count * modification_mass, 12)
+            for total in options
+            for occurrence_count in counts
+        })
+
+    return tuple(sorted({round(value, 12) for value in options}))
+
+
+def _calc_proforma_fragments(
+    sequence,
+    ion_types=("b", "y"),
+    monoisotopic=True,
+    ambiguous_rule="reject",
+):
+    """Calculate backbone fragments for a supported ProForma sequence."""
+    if __package__:
+        from . import mass as base_mass
+    else:
+        import mass as base_mass
+
+    plain, modifications, _, _ = _parse(sequence)
+    # Validate mass gaps and every modification even if all resulting
+    # fragments are rejected as ambiguous.
+    calc_proforma_mass(sequence, monoisotopic=monoisotopic)
+
+    fragments = {}
+    for ion_type in ion_types:
+        for length in range(1, len(plain)):
+            options = _fragment_mass_options(
+                plain, modifications, ion_type, length, monoisotopic
+            )
+            fragment_name = base_mass._pep_fragment_name(ion_type, length)
+            if len(options) == 1:
+                fragments[fragment_name] = options[0]
+            elif ambiguous_rule == "both":
+                for index, mass in enumerate(options, 1):
+                    fragments[f"{fragment_name}#{index}"] = mass
+    return fragments
+
+
 def calc_proforma_mass(sequence, monoisotopic=True, ion_type="H2O"):
     """Calculate a neutral mass for a supported ProForma protein string."""
     if __package__:
@@ -403,6 +536,674 @@ def calc_proforma_mass(sequence, monoisotopic=True, ion_type="H2O"):
 
     total = sum(masses[residue] for residue in plain)
     total += base_mass.get_pep_ion_mass_shift(ion_type, monoisotopic=monoisotopic)
-    for tag, site in modifications:
+    for tag, site, _ in modifications:
         total += _tag_mass(tag, site, monoisotopic)
     return float(total)
+
+
+if __name__ == "__main__":
+
+    ca_seq = "S[Acetylation]HHWGYGKHNGPEHWHKDFPIANGERQSPVDIDTKAVVQDPALKPLALVYGEATSRRMVNNGHSFNVEYDDSQDKAVLKDGPLTGTYRLVQFHFHWGSSDDQGSEHTVDRKKYAAELHLVHWNTKYGDFGTAAQQPDGLAVVGVFLKVGDANPALQKVLDALDSIKTKGKSTDFPNFDPGSLLPNVLDYWTYPGSLTTPPLLESVTWIVLKEPISVSSQQMLKFRTLNFNAEGEPELLMLANWRPAQPLKNRQVRGFPK"
+
+    experimental_mass_text = """374.208
+    420.187
+    587.331
+    588.339
+    605.259
+    606.266
+    663.288
+    702.418
+    740.987
+    816.463
+    883.373
+    970.559
+    971.556
+    1011.468
+    1084.602
+    1104.513
+    1124.506
+    1147.944
+    1148.527
+    1212.697
+    1218.556
+    1262.57
+    1325.781
+    1416.644
+    1454.769
+    1545.687
+    1550.893
+    1638.733
+    1682.746
+    1766.747
+    1868.826
+    1875.083
+    1961.87
+    2005.884
+    2061.163
+    2133.979
+    2175.206
+    2241.105
+    2246.243
+    2249.006
+    2257.079
+    2257.581
+    2352.058
+    2493.127
+    2549.311
+    2606.212
+    2633.235
+    2677.248
+    2716.536
+    2791.292
+    2844.706
+    2845.579
+    2847.434
+    2847.936
+    2848.312
+    2850.319
+    2853.938
+    2886.481
+    2977.356
+    2981.132
+    3070.025
+    3070.527
+    3071.674
+    3087.693
+    3088.963
+    3089.443
+    3128.696
+    3135.454
+    3144.715
+    3217.501
+    3226.125
+    3257.74
+    3261.516
+    3312.061
+    3312.395
+    3328.777
+    3344.795
+    3398.202
+    3398.704
+    3442.82
+    3445.6
+    3457.834
+    3460.845
+    3462.48
+    3483.734
+    3484.236
+    3544.67
+    3589.89
+    3614.679
+    3624.105
+    3659.696
+    3701.161
+    3703.932
+    3714.014
+    3714.516
+    3726.336
+    3726.837
+    3728.767
+    3753.981
+    3772.781
+    3887.807
+    3892.287
+    3899.868
+    3899.917
+    3907.927
+    3918.063
+    3921.086
+    3988.856
+    4074.169
+    4087.167
+    4090.163
+    4116.952
+    4173.695
+    4190.229
+    4204.877
+    4221.238
+    4237.266
+    4386.125
+    4463.421
+    4472.202
+    4514.14
+    4514.186
+    4565.471
+    4585.196
+    4721.515
+    4725.26
+    4741.831
+    4753.287
+    4797.274
+    4797.302
+    4798.33
+    4810.313
+    4888.579
+    4910.358
+    4910.386
+    4936.608
+    4939.648
+    4940.658
+    5023.639
+    5062.596
+    5120.158
+    5123.726
+    5135.534
+    5138.741
+    5147.695
+    5153.686
+    5200.756
+    5209.736
+    5241.763
+    5248.618
+    5319.656
+    5337.834
+    5338.639
+    5428.855
+    5432.74
+    5486.789
+    5490.843
+    5531.808
+    5548.918
+    5565.96
+    5589.949
+    5672.025
+    5677.013
+    5678.045
+    5694.872
+    5706.875
+    5709.871
+    5729.292
+    5751.892
+    5823.321
+    5824.913
+    5875.131
+    5880.937
+    5905.185
+    5950.972
+    6002.252
+    6053.02
+    6107.24
+    6107.745
+    6139.047
+    6142.984
+    6164.755
+    6194.282
+    6235.516
+    6296.153
+    6299.055
+    6452.253
+    6475.484
+    6514.486
+    6604.522
+    6614.031
+    6682.364
+    6708.14
+    6717.61
+    6752.396
+    6790.608
+    6795.402
+    6831.7
+    6909.445
+    6967.472
+    7089.259
+    7104.532
+    7125.845
+    7190.562
+    7225.884
+    7227.916
+    7232.034
+    7257.846
+    7294.619
+    7297.578
+    7317.396
+    7321.963
+    7331.544
+    7337.627
+    7339.976
+    7340.642
+    7340.84
+    7344.519
+    7347.54
+    7352.541
+    7408.66
+    7427.006
+    7452.674
+    7485.05
+    7494.938
+    7508.698
+    7550.736
+    7551.748
+    7610.03
+    7627.218
+    7632.028
+    7663.761
+    7680.786
+    7745.18
+    7769.767
+    7799.837
+    7800.122
+    7843.851
+    7846.218
+    7941.875
+    7958.877
+    8029.89
+    8032.29
+    8073.904
+    8078.94
+    8160.937
+    8171.516
+    8194.348
+    8210.385
+    8258.36
+    8288.994
+    8293.374
+    8309.367
+    8318.641
+    8405.034
+    8422.455
+    8521.525
+    8532.118
+    8574.517
+    8603.154
+    8635.53
+    8635.573
+    8639.045
+    8640.531
+    8702.22
+    8800.686
+    8815.307
+    8817.722
+    8829.7
+    8845.699
+    8861.746
+    8943.408
+    8958.784
+    9045.851
+    9058.431
+    9271.918
+    9297.916
+    9313.847
+    9314.913
+    9426.629
+    9462
+    9463.06
+    9483.655
+    9519.042
+    9577.052
+    9584.699
+    9690.124
+    9747.768
+    9820.149
+    9837.195
+    9892.175
+    9893.201
+    9903.867
+    9913.987
+    9918.188
+    9936.026
+    9936.202
+    9952.224
+    9954.154
+    10021.24
+    10037.252
+    10079.271
+    10107.285
+    10116.018
+    10123.269
+    10139.273
+    10238.827
+    10239.327
+    10242.071
+    10244.086
+    10251.371
+    10308.378
+    10391.148
+    10437.498
+    10494.538
+    10512.188
+    10520.523
+    10528.207
+    10537.521
+    10554.562
+    10666.644
+    10768.322
+    10779.722
+    10795.736
+    10812.332
+    10822.748
+    10849.745
+    10865.72
+    10881.756
+    10980.756
+    10980.765
+    10999.416
+    10999.461
+    11067.836
+    11069.856
+    11165.906
+    11180.927
+    11181.905
+    11229.497
+    11280.941
+    11296.958
+    11344.529
+    11459.558
+    11461.567
+    11464.94
+    11544.606
+    11554.903
+    11578.527
+    11588.616
+    11620.18
+    11644.62
+    11695.866
+    11731.665
+    11731.668
+    11860.717
+    11862.348
+    11862.348
+    11873.382
+    11932.346
+    11997.745
+    11999.995
+    12100.447
+    12127.441
+    12128.456
+    12143.431
+    12182.873
+    12197.887
+    12215.507
+    12312.911
+    12330.529
+    12345.541
+    12348.565
+    12373.858
+    12386.525
+    12424.995
+    12425.001
+    12466.043
+    12469.017
+    12485.6
+    12576.742
+    12596.1
+    12596.104
+    12614.701
+    12683.791
+    12727.795
+    12829.259
+    12839.828
+    12844.257
+    12874.862
+    12877.689
+    12882.445
+    12888.265
+    12959.307
+    12972.897
+    12987.938
+    12989.95
+    13026.976
+    13029.339
+    13030.952
+    13131.044
+    13159.386
+    13228.044
+    13231.733
+    13256.113
+    13301.146
+    13410.591
+    13411.592
+    13413.214
+    13470.225
+    13533.396
+    13543.164
+    13566.25
+    13584.228
+    13661.388
+    13701.633
+    13750.329
+    13760.803
+    13766.373
+    13792.354
+    13810.351
+    13938.428
+    13945.82
+    13954.562
+    13992.484
+    14010.479
+    14058.869
+    14079.491
+    14159.904
+    14180.559
+    14238.593
+    14271.98
+    14288.008
+    14300.541
+    14353.585
+    14385.643
+    14451.07
+    14451.077
+    14455.782
+    14457.689
+    14466.077
+    14482.648
+    14483.666
+    14484.644
+    14500.681
+    14504.367
+    14504.874
+    14509.096
+    14514.674
+    14516.674
+    14541.691
+    14557.707
+    14587.947
+    14607.902
+    14625.127
+    14660.747
+    14676.758
+    14702.753
+    14720.766
+    14735.762
+    14818.994
+    14827.212
+    14838.347
+    14848.85
+    14862.835
+    14943.16
+    15000.296
+    15003.304
+    15019.93
+    15064.966
+    15185.404
+    15189.467
+    15198.398
+    15202.46
+    15206.024
+    15250.042
+    15263.407
+    15265.027
+    15265.378
+    15266.059
+    15270.542
+    15294.422
+    15310.43
+    15314.491
+    15424.514
+    15529.092
+    15538.528
+    15599.204
+    15697.495
+    15707.625
+    15711.643
+    15736.297
+    15850.393
+    15861.672
+    15879.742
+    15881.697
+    15908.138
+    15957.699
+    15977.399
+    15978.811
+    15998.423
+    16032.814
+    16033.817
+    16036.83
+    16048.435
+    16050.475
+    16061.842
+    16120.496
+    16135.495
+    16186.36
+    16284.575
+    16410.645
+    16494.723
+    16539.758
+    16653.846
+    16678.867
+    16678.912
+    16695.861
+    16710.711
+    16766.867
+    16766.871
+    16795.836
+    16810.844
+    16863.299
+    16864.311
+    17012.006
+    17063.229
+    17148.047
+    17364.139
+    17403.447
+    17549.188
+    17665.229
+    18144.008
+    18196.418
+    18480.533
+    18620.605
+    18687.611
+    18766.707
+    18893.729
+    18965.295
+    19072.543
+    19160.045
+    19198.357
+    19619.334
+    19693.82
+    19949.369
+    19950.32
+    20307.54
+    20476.635
+    20935.838
+    21049.867
+    21072.861
+    21336.203
+    21651.549
+    21885.939
+    22212.355
+    22227.01
+    22379.918
+    22390.701
+    22418.822
+    22688.047
+    22790.852
+    22872.795
+    23393.357
+    23722.426
+    24429.949
+    24706.971
+    24729.447
+    25449.395
+    25451.502
+    26509.49
+    26534.086
+    26597.18
+    27802.301
+    27949.738
+    28131.293
+    28266.793
+    28301.156
+    28308.416
+    28765.414
+    28945.748
+    28949.719
+    28952.771
+    28965.74
+    28968.617
+    28969.766
+    28991.754
+    29008.748
+    29009.773
+    29195.82
+    29216.879
+    29222.727
+    29231.93
+    29245.232
+    29284.625
+    29527.086
+    29535.311
+    29715.912
+    30398.807
+    30837.537
+    31416.27
+    31695.678
+    31955.619
+    32074.863
+    32957.918
+    43498.945
+    """
+
+    experimental_masses = [
+        float(value) for value in experimental_mass_text.split()
+    ]
+    predicted_fragments = _calc_proforma_fragments(
+        ca_seq, ion_types=("c", "z'"), monoisotopic=True
+    )
+    tolerance_ppm = 20.0
+    match_candidates = sorted(
+        (
+            abs(experimental - predicted) / predicted * 1e6,
+            ion,
+            predicted,
+            experimental,
+        )
+        for ion, predicted in predicted_fragments.items()
+        for experimental in experimental_masses
+        if abs(experimental - predicted) / predicted * 1e6 <= tolerance_ppm
+    )
+
+    # Select the lowest-error one-to-one assignments so neither an ion nor an
+    # experimental feature can inflate the sequence coverage.
+    matches = []
+    matched_ions = set()
+    matched_features = set()
+    for _, ion, predicted, experimental in match_candidates:
+        if ion in matched_ions or experimental in matched_features:
+            continue
+        matched_ions.add(ion)
+        matched_features.add(experimental)
+        error_ppm = (experimental - predicted) / predicted * 1e6
+        matches.append((ion, predicted, experimental, error_ppm))
+
+    sequence_length = len(strip_proforma(ca_seq))
+    cleavage_sites = {
+        int(ion.lstrip("abcxyz'").partition("#")[0])
+        if ion.startswith("c")
+        else sequence_length - int(ion.lstrip("abcxyz'").partition("#")[0])
+        for ion, _, _, _ in matches
+    }
+    coverage = len(cleavage_sites) / (sequence_length - 1) * 100
+
+    print("Ion\tPredicted mass\tExperimental mass\tError (ppm)")
+    for ion, predicted, experimental, error_ppm in sorted(
+        matches,
+        key=lambda match: (
+            match[0][0],
+            int(match[0].lstrip("abcxyz'").partition("#")[0]),
+        ),
+    ):
+        print(f"{ion}\t{predicted:.6f}\t{experimental:.3f}\t{error_ppm:+.3f}")
+    print(
+        f"Matched {len(matches)} fragments at {tolerance_ppm:g} ppm; "
+        f"{len(cleavage_sites)}/{sequence_length - 1} cleavage sites; "
+        f"sequence coverage {coverage:.2f}%"
+    )

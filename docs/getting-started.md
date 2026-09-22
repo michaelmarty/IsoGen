@@ -62,11 +62,19 @@ fragment and choose one of the supported ion types:
 | --- | --- | --- |
 | `H2O` | Intact peptide | +H2O |
 | `a` | N-terminal fragment | -CO |
+| `a+1` | N-terminal fragment | -CO+H |
 | `b` | N-terminal fragment | No terminal shift |
 | `c` | N-terminal fragment | +NH3 |
 | `x` | C-terminal fragment | +CO2 |
+| `x+1` | C-terminal fragment | +CO2+H |
 | `y` | C-terminal fragment | +H2O |
-| `z` | C-terminal fragment | +H2O-NH3 |
+| `y-1` | C-terminal fragment | +H2O-H |
+| `z` | C-terminal fragment | +H2O-NH3 (Pyteomics `z`) |
+| `z'` | C-terminal fragment | +H2O-NH2 (one H above `z`) |
+
+For complete fragment ladders, `calc_pep_fragments` also accepts named
+`fragmentation_type` presets such as `"HCD"`, `"ETD"`, and `"UVPD9"`.
+The aliases `z+1`, `z•`, `z·`, and `z.` all mean `z'`.
 
 For example, split `PEPTIDE` into the appropriate N- or C-terminal sequence:
 
