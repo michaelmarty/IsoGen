@@ -303,21 +303,21 @@ def test_z_prime_aliases_use_the_same_mass_and_canonical_name(alias):
     assert observed == expected
 
 
-@pytest.mark.parametrize("ion_type", ["a+1", "x+1", "y-1"])
-def test_uvpd_hydrogen_shifted_ions_match_pyteomics(ion_type):
+@pytest.mark.parametrize(
+    ("ion_type", "base_ion_type", "hydrogen_multiplier"),
+    [("a+1", "a", 1), ("x+1", "x", 1), ("y-1", "y", -1)],
+)
+def test_uvpd_hydrogen_shifted_ions_match_pyteomics(
+    ion_type, base_ion_type, hydrogen_multiplier
+):
     sequence = "PEPTIDE"
     fragment = sequence[:3] if ion_type.startswith("a") else sequence[-3:]
     observed = isogen.calc_pep_monoisotopic_mass(
         fragment, ion_type=ion_type
     )
-    if ion_type == "y-1":
-        expected = pyteomics_mass.calculate_mass(
-            sequence=fragment, ion_type="y"
-        ) - pyteomics_mass.calculate_mass(formula="H")
-    else:
-        expected = pyteomics_mass.calculate_mass(
-            sequence=fragment, ion_type=ion_type
-        )
+    expected = pyteomics_mass.calculate_mass(
+        sequence=fragment, ion_type=base_ion_type
+    ) + hydrogen_multiplier * pyteomics_mass.calculate_mass(formula="H")
 
     assert observed == pytest.approx(expected, abs=3e-5)
 
