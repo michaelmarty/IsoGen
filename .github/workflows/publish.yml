@@ -293,7 +293,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: wheel-Linux-${{ matrix.arch }}
-          path: dist/*-${{ matrix.arch }}.whl
+          path: dist/*.whl
           if-no-files-found: error
 
   wheels-macos:
