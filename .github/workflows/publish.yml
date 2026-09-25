@@ -185,9 +185,9 @@ jobs:
           path: performance/*.json
           if-no-files-found: warn
 
-  wheels-linux:
-    name: Build Linux wheel
-    runs-on: ubuntu-latest
+  wheels-windows-arm64:
+    name: Build and test Windows ARM64 wheel
+    runs-on: windows-11-arm
 
     steps:
       - uses: actions/checkout@v6
@@ -195,6 +195,70 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+          architecture: arm64
+
+      - name: Verify native ARM64 runner
+        run: python -c "import platform; machine = platform.machine().lower(); assert machine in ('aarch64', 'arm64'), f'Expected ARM64, found {machine}'"
+
+      - name: Install ARM64 FFTW
+        shell: pwsh
+        run: |
+          $vcpkg = Join-Path $env:VCPKG_INSTALLATION_ROOT 'vcpkg.exe'
+          & $vcpkg install fftw3:arm64-windows
+          if ($LASTEXITCODE -ne 0) {
+              throw "vcpkg failed with exit code $LASTEXITCODE"
+          }
+
+          $toolchain = (Join-Path $env:VCPKG_INSTALLATION_ROOT 'scripts/buildsystems/vcpkg.cmake').Replace('\', '/')
+          $fftwRoot = (Join-Path $env:VCPKG_INSTALLATION_ROOT 'installed/arm64-windows').Replace('\', '/')
+          "CMAKE_ARGS=-DCMAKE_TOOLCHAIN_FILE=$toolchain -DVCPKG_TARGET_TRIPLET=arm64-windows -DFFTW3_ROOT=$fftwRoot" |
+              Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install build and test tools
+        run: python -m pip install --upgrade build pytest pyteomics
+
+      - name: Build wheel
+        run: python -m build --wheel
+
+      - name: Test wheel
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m venv wheel-test
+          $python = "${{ runner.temp }}\wheel-test\Scripts\python.exe"
+          $wheel = (Get-ChildItem '${{ github.workspace }}\dist\*-win_arm64.whl').FullName
+          & $python -m pip install $wheel "pytest>=8" "pyteomics>=4.7"
+          & $python -m pytest '${{ github.workspace }}\tests' --import-mode=importlib
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheel-Windows-arm64
+          path: dist/*-win_arm64.whl
+          if-no-files-found: error
+
+  wheels-linux:
+    name: Build Linux wheel (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+            python_architecture: x64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+            python_architecture: arm64
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: ${{ matrix.python_architecture }}
+
+      - name: Verify runner architecture
+        run: python -c "import platform; machine = platform.machine().lower(); assert machine == '${{ matrix.arch }}', f'Expected ${{ matrix.arch }}, found {machine}'"
 
       - name: Install build tools
         run: python -m pip install --upgrade build
@@ -228,8 +292,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: wheel-Linux
-          path: dist/*.whl
+          name: wheel-Linux-${{ matrix.arch }}
+          path: dist/*-${{ matrix.arch }}.whl
           if-no-files-found: error
 
   wheels-macos:
@@ -308,7 +372,7 @@ jobs:
   github-release:
     name: Create GitHub release
     if: github.event_name == 'workflow_dispatch'
-    needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-linux, wheels-macos, sdist]
+    needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-windows-arm64, wheels-linux, wheels-macos, sdist]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -352,10 +416,11 @@ jobs:
       needs.release-metadata.result == 'success' &&
       needs.wheels-windows.result == 'success' &&
       needs.compare-windows-compilers.result == 'success' &&
+      needs.wheels-windows-arm64.result == 'success' &&
       needs.wheels-linux.result == 'success' &&
       needs.wheels-macos.result == 'success' &&
       needs.sdist.result == 'success'
-    needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-linux, wheels-macos, sdist, github-release]
+    needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-windows-arm64, wheels-linux, wheels-macos, sdist, github-release]
     runs-on: ubuntu-latest
     environment:
       name: pypi

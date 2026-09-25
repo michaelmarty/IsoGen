@@ -52,10 +52,10 @@ IsoGen requires Python 3.9 or newer. The native library is loaded through
 `ctypes` and does not depend on a particular CPython minor-version ABI.
 
 Published platform wheels include a native library built from the bundled C
-sources for 64-bit Windows, Linux, and macOS (Intel and Apple Silicon). Linux
-and macOS wheels bundle the required FFTW 3 runtime during wheel repair, so a
-compiler, CMake, and a separate FFTW installation are not needed when a
-compatible wheel is available.
+sources for Windows x64 and ARM64, Linux x86_64 and ARM64, and macOS (Intel and
+Apple Silicon). The wheels include the required FFTW 3 runtime, so a compiler,
+CMake, and a separate FFTW installation are not needed when a compatible wheel
+is available.
 
 If pip cannot find a compatible wheel, it falls back to the source
 distribution and automatically builds the native library with CMake. A source
@@ -334,12 +334,13 @@ python -m pip install -e ".[test]"
 python -m pytest
 ```
 
-The Windows release workflow builds the native wheel with both MSVC and the
+The Windows release workflow builds the x64 native wheel with both MSVC and the
 Intel oneAPI compiler. Both wheels run the complete unit test suite on a clean
 Windows runner, after which representative FFT, NN, and BRAIN workloads are
-compared for numerical agreement and performance. The Intel wheel is the
-Windows release artifact; the MSVC wheel and JSON benchmark results are kept
-as workflow artifacts for comparison.
+compared for numerical agreement and performance. The Intel wheel is the x64
+release artifact; the MSVC wheel and JSON benchmark results are kept as
+workflow artifacts for comparison. The ARM64 release wheel is built with MSVC
+and tested on a native Windows ARM64 runner.
 
 Development and model-training modules have additional dependencies:
 
@@ -360,6 +361,10 @@ ions.
 Explore reverse models to infer something about the sequence or input type from the isotope distribution. Perhaps explore the bounds of what a reasonable peptide sequence may be.
 
 ## CHANGELOG
+
+### 1.1.2
+
+Added native Windows and Linux ARM64 wheels to the release workflow.
 
 ### 1.1.1
 

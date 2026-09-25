@@ -1,15 +1,17 @@
 # Building and publishing IsoGen
 
 IsoGen uses scikit-build-core to compile its native C library while each wheel
-is built. Windows, Linux, macOS Intel, and macOS Apple Silicon wheels must be
-built and tested on their target platforms.
+is built. Windows x64, Windows ARM64, Linux x86_64, Linux ARM64, macOS Intel,
+and macOS Apple Silicon wheels must be built and tested on their target
+platforms.
 
 The Windows job builds both an MSVC comparison wheel and the release wheel
 with a pinned Intel oneAPI compiler. A separate clean Windows runner installs
 and runs the full tests against both wheels, checks their numerical results,
 and records FFT, NN, and BRAIN timings. This also verifies that the Intel wheel
 contains its required runtime DLLs and does not depend on oneAPI being
-installed on the user's machine.
+installed on the user's machine. The Windows ARM64 job builds with MSVC and
+vcpkg's ARM64 FFTW package, then tests the wheel on the native ARM64 runner.
 
 ## Prepare a release
 
@@ -72,8 +74,10 @@ python -m twine check dist/*
 
 The expected wheel names are platform-specific:
 
-- Windows: `pyisogen-<version>-py3-none-win_amd64.whl`
-- Linux: initially `pyisogen-<version>-py3-none-linux_x86_64.whl`
+- Windows x64: `pyisogen-<version>-py3-none-win_amd64.whl`
+- Windows ARM64: `pyisogen-<version>-py3-none-win_arm64.whl`
+- Linux x86_64: initially `pyisogen-<version>-py3-none-linux_x86_64.whl`
+- Linux ARM64: initially `pyisogen-<version>-py3-none-linux_aarch64.whl`
 - macOS Intel: `pyisogen-<version>-py3-none-macosx_*_x86_64.whl`
 - macOS Apple Silicon: `pyisogen-<version>-py3-none-macosx_*_arm64.whl`
 
@@ -83,7 +87,7 @@ that `auditwheel` can bundle it:
 
 ```shell
 python -m pip install auditwheel patchelf
-auditwheel repair dist/pyisogen-*-linux_x86_64.whl --wheel-dir wheelhouse
+auditwheel repair dist/pyisogen-*-linux_*.whl --wheel-dir wheelhouse
 ```
 
 Before committing a rebuilt Linux library, confirm that it has no dynamic GNU
@@ -135,6 +139,7 @@ After validating installation from TestPyPI:
 python -m twine upload dist/*
 ```
 
-The GitHub Actions workflow in `.github/workflows/publish.yml` builds Windows,
-Linux, macOS Intel, and macOS Apple Silicon wheels. A manually dispatched run
-creates the GitHub release and can optionally publish the same files to PyPI.
+The GitHub Actions workflow in `.github/workflows/publish.yml` builds Windows
+x64, Windows ARM64, Linux x86_64, Linux ARM64, macOS Intel, and macOS Apple
+Silicon wheels. A manually dispatched run creates the GitHub release and can
+optionally publish the same files to PyPI.
