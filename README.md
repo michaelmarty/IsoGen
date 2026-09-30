@@ -77,6 +77,9 @@ protein_brain = isogen.isodist(
 rna = isogen.isodist("AUGCAGUACGUA", type="RNA", isolen=64)
 dna = isogen.isodist("ATGCAGTACGTA", type="DNA", isolen=64)
 glucose_mass_dist = isogen.isodist("C6H12O6", type="ATOM", isolen=32)
+modified = isogen.isodist("M[Oxidation]")
+legacy = isogen.isodist("M[Oxidation]", use_modifications=False)
+labeled = isogen.isodist("K[UNIMOD:259]")
 ```
 
 The output is a numpy array of shape `(isolen, 2)` with the first column containing the monoisotopic mass and the second column containing the relative intensity. The `isolen` parameter controls the number of isotopic peaks returned. To return an m/z axis, pass a charge of one or greater. The default positive polarity uses `(M + zH) / z`; pass `polarity="negative"` for `(M - zH) / z`:
@@ -96,6 +99,14 @@ The `PEPTIDE` model is trained on peptide sequences, while the `RNA` model is tr
 
 The public `ATOM` type uses the FFT method; no neural-network formula model is
 available.
+
+ProForma modification composition is included in peptide envelopes by default.
+Set `use_modifications=False` to calculate the legacy unmodified envelope while
+retaining known mass shifts. Unsupported or mass-only annotations print warnings
+to standard error and are ignored individually for intensities. Fixed isotope
+labels are supported; bundled NN models and BRAIN compositions outside CHNOS/P
+warn and use FFT when needed. Custom residue-count models warn and ignore
+modifications in intensities. The CLI opt-out is `--ignore-modifications`.
 
 ### Custom neural-network models
 
@@ -242,6 +253,22 @@ model directory. `IsoGenMassEngine.train(...)` and
 from random masses when a custom target archive is not needed.
 
 ### Peptide ions and RNA termini
+
+To calculate all selected peptide fragment envelopes in one call, use
+`calc_pep_fragment_isodists`:
+
+```python
+batch = isogen.calc_pep_fragment_isodists(
+    "S[Acetylation]HHS", fragmentation_type="ETD", isolen=128
+)
+for label, mass, intensities in zip(batch.labels, batch.masses, batch.intensities):
+    print(label, mass, intensities)
+```
+
+The batch uses fragment-specific C/H/N/O/S compositions, including supported
+terminal ions and modifications with known formulas. A mass-only modification
+or ambiguous composition raises `ValueError`. Intensities are normalized to
+the most intense isotope; `masses` are neutral monoisotopic origins.
 
 For peptide fragments, pass the fragment sequence and select its neutral
 terminal composition with `ion_type`. IsoGen supports intact `H2O` (the

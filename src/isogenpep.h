@@ -25,6 +25,10 @@
 // Function declarations
 ISOGENPEP_EXPORTS float fft_pep_mass_to_dist(float mass, float* isodist, int isolen, int offset);
 ISOGENPEP_EXPORTS float fft_pep_seq_to_dist(const char* sequence, float* isodist, int isolen, int offset);
+// Packed C,H,N,O,S formulas and residue lengths; output has count * isolen floats.
+// Returns 0 on success and -1 on invalid input or an FFT failure.
+ISOGENPEP_EXPORTS int fft_pep_formulas_to_dists(const int* formulas, const int* lengths,
+                                                int count, float* output, int isolen);
 ISOGENPEP_EXPORTS float pep_mass_to_dist_fitting(float mass, float *isodist, int isolen, int offset);
 ISOGENPEP_EXPORTS float nn_pep_seq_to_dist(const char* seq, float* isodist, int isolen, int offset);
 ISOGENPEP_EXPORTS float nn_pep_mass_to_dist(float mass, float* isodist, int isolen, int offset);

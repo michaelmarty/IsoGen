@@ -34,7 +34,6 @@ _AVERAGE_ATOM_MASSES = {
     "Se": 78.96, "Br": 79.904, "I": 126.90447,
 }
 
-_FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)(?:\((-?\d+)\)|(-?\d*))")
 _NUMBER = re.compile(r"^[+-](?:\d+(?:\.\d*)?|\.\d+)$")
 _AMBIGUITY_SUFFIX = re.compile(r"#([A-Za-z0-9_.-]+)(?:\([^)]*\))?")
 
@@ -159,6 +158,9 @@ def _parse(sequence):
     while text.startswith("<"):
         end = _matching(text, 0, "<", ">")
         content = text[1:end]
+        if content == "D" or re.fullmatch(r"\d+[A-Z][a-z]?", content):
+            text = text[end + 1:]
+            continue
         match = re.fullmatch(r"\[(.*)\]@(.+)", content)
         if not match:
             raise ValueError(
@@ -299,34 +301,11 @@ def _lookup(identifier, site, monoisotopic, cv=None):
 
 
 def _formula_mass(formula, monoisotopic):
-    compact = re.sub(r"\s+", "", formula)
-    position = 0
-    total = 0.0
-    if not compact:
-        raise ValueError("Formula cannot be empty")
-    if monoisotopic:
-        if __package__:
-            from .mass import atom_masses_monoisotopic
-        else:
-            from mass import atom_masses_monoisotopic
-        masses = dict(zip(_ELEMENTS, atom_masses_monoisotopic))
+    if __package__:
+        from .protein_composition import parse_composition_formula, composition_mass
     else:
-        masses = _AVERAGE_ATOM_MASSES
-    for match in _FORMULA_TOKEN.finditer(compact):
-        if match.start() != position:
-            raise ValueError("Unsupported elemental formula: {!r}".format(formula))
-        element = match.group(1)
-        count_text = match.group(2) if match.group(2) is not None else match.group(3)
-        count = int(count_text) if count_text not in {None, ""} else 1
-        try:
-            total += masses[element] * count
-        except KeyError as exception:
-            kind = "monoisotopic" if monoisotopic else "average"
-            raise ValueError("No {} mass is available for {}".format(kind, element)) from exception
-        position = match.end()
-    if position != len(compact):
-        raise ValueError("Unsupported elemental formula: {!r}".format(formula))
-    return total
+        from protein_composition import parse_composition_formula, composition_mass
+    return composition_mass(parse_composition_formula(formula), monoisotopic)
 
 
 def _descriptor_mass(descriptor, site, monoisotopic):
@@ -510,6 +489,29 @@ def calc_proforma_mass(sequence, monoisotopic=True, ion_type="H2O"):
         from . import mass as base_mass
     else:
         import mass as base_mass
+
+    if __package__:
+        from .protein_composition import split_global_isotopes, resolve_proforma_composition, composition_mass, _tag_composition, _terminal_delta, _add
+    else:
+        from protein_composition import split_global_isotopes, resolve_proforma_composition, composition_mass, _tag_composition, _terminal_delta, _add
+    _, global_labels = split_global_isotopes(sequence)
+    if global_labels:
+        for element, isotope in global_labels.items():
+            composition_mass({(element, isotope): 1})
+        resolved = resolve_proforma_composition(sequence, ion_type=ion_type, warn=False)
+        # Strict mass APIs retain validation of annotation descriptors.
+        plain, modifications, x_gaps, _ = _parse(sequence)
+        if any(aa in "BZ" for aa in plain):
+            raise ValueError("Global isotope replacement requires an unambiguous residue composition")
+        for tag, site, _ in modifications:
+            _tag_mass(tag, site, monoisotopic)
+            _tag_composition(tag, site)
+        if x_gaps:
+            raise ValueError("Global isotope replacement requires a known composition for X")
+        if monoisotopic:
+            return resolved.mass
+        counts = resolved.counts.copy()
+        return composition_mass(counts, monoisotopic=False)
 
     plain, modifications, x_gaps, terminal_modification = _parse(sequence)
     if terminal_modification and str(ion_type).upper() != "H2O":

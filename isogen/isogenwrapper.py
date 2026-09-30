@@ -93,6 +93,35 @@ isogen_c_lib.nn_rna_seq_to_dist.restype = ctypes.c_float
 isogen_c_lib.fft_pep_seq_to_dist.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_float), ctypes.c_int,
                                              ctypes.c_int]
 isogen_c_lib.fft_pep_seq_to_dist.restype = ctypes.c_float
+_fft_pep_formula_batch = getattr(isogen_c_lib, "fft_pep_formulas_to_dists", None)
+if _fft_pep_formula_batch is not None:
+    _fft_pep_formula_batch.argtypes = [
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.c_int,
+        ctypes.POINTER(ctypes.c_float), ctypes.c_int,
+    ]
+    _fft_pep_formula_batch.restype = ctypes.c_int
+
+
+def fft_gen_pep_formula_batch(formulas, lengths, isolen=128):
+    """Calculate peptide isotope intensities from packed C/H/N/O/S formulas."""
+    formulas = np.ascontiguousarray(formulas, dtype=np.int32)
+    lengths = np.ascontiguousarray(lengths, dtype=np.int32)
+    if formulas.ndim != 2 or formulas.shape[1] != 5 or lengths.shape != (len(formulas),):
+        raise ValueError("formulas must have shape (n, 5) and lengths must have shape (n,)")
+    if not 1 <= isolen <= 128:
+        raise ValueError("isolen must be between 1 and 128")
+    output = np.zeros((len(formulas), isolen), dtype=np.float32)
+    if len(formulas):
+        if _fft_pep_formula_batch is None:
+            raise ImportError("IsoGen's native library lacks the fragment formula batch API")
+        status = _fft_pep_formula_batch(
+            formulas.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+            lengths.ctypes.data_as(ctypes.POINTER(ctypes.c_int)), len(formulas),
+            output.ctypes.data_as(ctypes.POINTER(ctypes.c_float)), isolen,
+        )
+        if status != 0:
+            raise ValueError("IsoGen could not calculate a fragment formula batch")
+    return output
 
 isogen_c_lib.nn_pep_seq_to_dist.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_float), ctypes.c_int,
                                             ctypes.c_int]
@@ -163,6 +192,112 @@ isogen_c_lib.nn_pep_seq_to_dist_custom.argtypes = [
 isogen_c_lib.nn_pep_seq_to_dist_custom.restype = ctypes.c_float
 
 ATOM_ELEMENT_COUNT = 109
+
+_fft_atom_counts_to_dist_c = getattr(isogen_c_lib, "fft_atom_counts_to_dist", None)
+_atom_isotope_mass_c = getattr(isogen_c_lib, "atom_isotope_mass", None)
+if _fft_atom_counts_to_dist_c is not None:
+    _fft_atom_counts_to_dist_c.argtypes = [
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.c_int,
+        ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int,
+    ]
+    _fft_atom_counts_to_dist_c.restype = ctypes.c_float
+if _atom_isotope_mass_c is not None:
+    _atom_isotope_mass_c.argtypes = [ctypes.c_int, ctypes.c_int]
+    _atom_isotope_mass_c.restype = ctypes.c_double
+isogen_c_lib.brain_list_to_dist.argtypes = [
+    ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.POINTER(ctypes.c_float),
+]
+isogen_c_lib.brain_list_to_dist.restype = ctypes.c_float
+
+
+def isotope_mass(element, mass_number):
+    """Return the native exact mass of a fully specified isotope."""
+    if __package__:
+        from .protein_mods import _ELEMENTS
+    else:
+        from protein_mods import _ELEMENTS
+    _require_atom_formula_function(_atom_isotope_mass_c, "atom_isotope_mass")
+    if element not in _ELEMENTS:
+        raise ValueError("Unknown isotope element: " + element)
+    result = _atom_isotope_mass_c(_ELEMENTS.index(element) + 1, mass_number)
+    if result < 0:
+        raise ValueError("No isotope data for {}{}".format(mass_number, element))
+    return result
+
+
+def _composition_isodist(composition, isolen, offset, method="FFT"):
+    if __package__:
+        from .protein_mods import _ELEMENTS
+        from .protein_composition import print_modification_warning
+    else:
+        from protein_mods import _ELEMENTS
+        from protein_composition import print_modification_warning
+    if not isinstance(isolen, (int, np.integer)) or not isinstance(offset, (int, np.integer)):
+        raise TypeError("isolen and offset must be integers")
+    if isolen <= 0 or not 0 <= offset < isolen:
+        raise ValueError("Require isolen > 0 and 0 <= offset < isolen")
+    natural = np.zeros(ATOM_ELEMENT_COUNT, dtype=np.int32)
+    heavy = []
+    for (element, isotope), count in composition.counts.items():
+        if count < 0 or count > np.iinfo(np.int32).max:
+            raise ValueError("Atom count is outside the native integer range")
+        atomic_number = _ELEMENTS.index(element) + 1
+        if isotope:
+            heavy.append((atomic_number, isotope, count))
+        else:
+            natural[atomic_number - 1] = count
+    output = np.zeros(isolen, dtype=np.float32)
+    output_ptr = output.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    if method == "BRAIN" and not heavy and all(
+        element in {"C", "H", "N", "O", "S", "P"} for element, _ in composition.counts
+    ):
+        # Phosphorus has one naturally occurring isotope and adds no width.
+        counts = np.array([composition.counts.get((element, None), 0)
+                           for element in ("C", "H", "N", "O", "S")], dtype=np.int32)
+        probabilities = np.zeros(isolen, dtype=np.float32)
+        maximum = isogen_c_lib.brain_list_to_dist(
+            counts.ctypes.data_as(ctypes.POINTER(ctypes.c_int)), isolen,
+            probabilities.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
+        if maximum < 0:
+            raise ValueError("BRAIN composition calculation failed")
+        if maximum > 0:
+            output[offset:] = probabilities[:isolen - offset] / maximum
+        return output
+    if method == "BRAIN":
+        print_modification_warning("BRAIN does not support this elemental/isotope composition; using FFT")
+    _require_atom_formula_function(_fft_atom_counts_to_dist_c, "fft_atom_counts_to_dist")
+    heavy_arrays = [np.array([entry[i] for entry in heavy], dtype=np.int32) for i in range(3)]
+    pointers = [array.ctypes.data_as(ctypes.POINTER(ctypes.c_int)) for array in heavy_arrays]
+    result = _fft_atom_counts_to_dist_c(
+        natural.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+        *pointers, len(heavy), output_ptr, isolen, offset)
+    if result < 0:
+        raise ValueError("Invalid atomic/isotope composition or native FFT allocation failure")
+    return output
+
+
+def _modified_peptide_isodist(sequence, isolen, offset, method,
+                             use_modifications, model_path=None, composition=None):
+    if __package__:
+        from .protein_composition import resolve_proforma_composition, print_modification_warning
+    else:
+        from protein_composition import resolve_proforma_composition, print_modification_warning
+    if not isinstance(use_modifications, (bool, np.bool_)):
+        raise TypeError("use_modifications must be a boolean")
+    if composition is None:
+        composition = resolve_proforma_composition(sequence, use_modifications=use_modifications)
+    if use_modifications and composition.changed:
+        if method == "NN" and model_path is not None:
+            print_modification_warning("Custom residue-count NN models cannot use modification composition; ignoring modifications for isotope prediction")
+        else:
+            if method == "NN":
+                print_modification_warning("Residue-count NN models cannot use modification composition; using FFT")
+            return _composition_isodist(composition, isolen, offset, method)
+    # Pass only residues into the legacy interfaces. This also avoids the old
+    # native bracket parser for unsupported annotations and the opt-out path.
+    return gen_isodist(composition.sequence, isolen=isolen, offset=offset,
+                       method=method, model_path=model_path, use_modifications=False)
 
 _atom_formula_to_vector_c = getattr(
     isogen_c_lib, "atom_formula_to_vector", None
@@ -310,7 +445,8 @@ def isogen_atom(formula, isolen=128):
 
 
 def nn_gen_seq_isodist(
-    sequence, type="PEPTIDE", isolen=64, offset=0, model_path=None
+    sequence, type="PEPTIDE", isolen=64, offset=0, model_path=None,
+    use_modifications=True,
 ):
     """Generate neural-network isotope intensities from a sequence.
 
@@ -327,6 +463,11 @@ def nn_gen_seq_isodist(
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
     """
+    type = type.upper() if isinstance(type, str) else type
+    if type == "PEPTIDE" and needs_proforma_parser(sequence):
+        if use_modifications:
+            return _modified_peptide_isodist(sequence, isolen, offset, "NN", use_modifications, model_path)
+        sequence = strip_proforma(sequence)
     if type == "DNA":
         sequence = sequence.upper().replace("T", "U")
     sequence_bytes = sequence.encode("utf-8")
@@ -370,7 +511,7 @@ def nn_gen_seq_isodist(
     return isodist
 
 
-def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
+def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0, use_modifications=True):
     """Generate FFT isotope intensities from a sequence.
 
     DNA sequences use the RNA model after replacing thymine with uracil.
@@ -386,6 +527,10 @@ def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
     """
     type = type.upper() if isinstance(type, str) else type
+    if type == "PEPTIDE" and needs_proforma_parser(sequence):
+        if use_modifications:
+            return _modified_peptide_isodist(sequence, isolen, offset, "FFT", use_modifications)
+        sequence = strip_proforma(sequence)
     if type in ("ATOM", "FORMULA"):
         return fft_gen_atom_isodist(sequence, isolen=isolen, offset=offset)
     if type == "DNA":
@@ -406,7 +551,8 @@ def fft_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
 
 
 def nn_gen_isodist(
-    input, type="PEPTIDE", isolen=64, offset=0, model_path=None
+    input, type="PEPTIDE", isolen=64, offset=0, model_path=None,
+    use_modifications=True,
 ):
     """Generate neural-network isotope intensities from a mass or sequence.
 
@@ -423,7 +569,8 @@ def nn_gen_isodist(
     """
     if isinstance(input, str):
         return nn_gen_seq_isodist(
-            input, type=type, isolen=isolen, offset=offset, model_path=model_path
+            input, type=type, isolen=isolen, offset=offset, model_path=model_path,
+            use_modifications=use_modifications,
         )
 
     # Create empty array
@@ -467,7 +614,7 @@ def nn_gen_isodist(
     return isodist
 
 
-def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
+def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, use_modifications=True):
     """Generate FFT isotope intensities from a mass or sequence.
 
     Args:
@@ -481,7 +628,8 @@ def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
     """
     type = type.upper() if isinstance(type, str) else type
     if isinstance(input, str):
-        return fft_gen_seq_isodist(input, type=type, isolen=isolen, offset=offset)
+        return fft_gen_seq_isodist(input, type=type, isolen=isolen, offset=offset,
+                                  use_modifications=use_modifications)
 
     # Create empty array
     isodist = np.zeros(isolen).astype(np.float32)
@@ -506,7 +654,7 @@ def fft_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
     return np.array(isodist)
 
 
-def brain_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
+def brain_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0, use_modifications=True):
     """Generate BRAIN isotope intensities from a sequence.
 
     DNA sequences use the RNA calculation after replacing thymine with
@@ -522,6 +670,10 @@ def brain_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
         A float32 NumPy intensity vector, or ``None`` for an unknown type.
     """
     type = type.upper() if isinstance(type, str) else type
+    if type == "PEPTIDE" and needs_proforma_parser(sequence):
+        if use_modifications:
+            return _modified_peptide_isodist(sequence, isolen, offset, "BRAIN", use_modifications)
+        sequence = strip_proforma(sequence)
     if type == "DNA":
         sequence = sequence.upper().replace("T", "U")
     sequence_bytes = sequence.encode("utf-8")
@@ -545,7 +697,7 @@ def brain_gen_seq_isodist(sequence, type="PEPTIDE", isolen=128, offset=0):
     return isodist
 
 
-def brain_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
+def brain_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0, use_modifications=True):
     """Generate BRAIN isotope intensities from a mass or sequence.
 
     Args:
@@ -560,7 +712,7 @@ def brain_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
     type = type.upper() if isinstance(type, str) else type
     if isinstance(input, str):
         return brain_gen_seq_isodist(
-            input, type=type, isolen=isolen, offset=offset
+            input, type=type, isolen=isolen, offset=offset, use_modifications=use_modifications
         )
 
     isodist = np.zeros(isolen, dtype=np.float32)
@@ -583,10 +735,10 @@ def brain_gen_isodist(input, type="PEPTIDE", isolen=128, offset=0):
     return isodist
 
 
-def brain_pep_seq_to_dist(sequence, isolen=128, offset=0):
+def brain_pep_seq_to_dist(sequence, isolen=128, offset=0, use_modifications=True):
     """Generate BRAIN intensities from a peptide sequence."""
     return brain_gen_seq_isodist(
-        sequence, type="PEPTIDE", isolen=isolen, offset=offset
+        sequence, type="PEPTIDE", isolen=isolen, offset=offset, use_modifications=use_modifications
     )
 
 
@@ -617,6 +769,8 @@ def gen_isodist(
     offset=0,
     method="FFT",
     model_path=None,
+    use_modifications=True,
+    _composition=None,
 ):
     """Dispatch a mass or sequence to an isotope-distribution method.
 
@@ -627,6 +781,10 @@ def gen_isodist(
         offset: Number of leading zero-intensity isotope positions.
         method: ``FFT``, ``NN``, or ``BRAIN``.
         model_path: Optional custom binary model filename for the NN method.
+        use_modifications: Include resolvable ProForma composition by default.
+            Unsupported modifications print warnings and are skipped; bundled
+            NN models use FFT for composition changes. ``False`` selects the
+            legacy unmodified envelope. Known mass shifts are independent.
 
     Returns:
         A float32 NumPy intensity vector, or ``None`` for an unknown method or
@@ -634,16 +792,22 @@ def gen_isodist(
     """
     type = type.upper() if isinstance(type, str) else type
     method = method.upper() if isinstance(method, str) else method
-    if type == "PEPTIDE" and isinstance(input, str):
-        if needs_proforma_parser(input):
-            calc_proforma_mass(input)
-            input = strip_proforma(input)
     if type in ("ATOM", "FORMULA") and method != "FFT":
         raise ValueError("ATOM inputs support only the FFT method")
     if model_path is not None and method != "NN":
         raise ValueError("model_path is supported only by the NN method")
+    if not isinstance(use_modifications, (bool, np.bool_)):
+        raise TypeError("use_modifications must be a boolean")
+    if type == "PEPTIDE" and isinstance(input, str) and (needs_proforma_parser(input) or _composition is not None):
+        if method not in {"FFT", "NN", "BRAIN"}:
+            raise ValueError("Unknown method: " + str(method))
+        if use_modifications:
+            return _modified_peptide_isodist(input, isolen, offset, method,
+                                            use_modifications, model_path, _composition)
+        input = strip_proforma(input)
     if method == "FFT":
-        return fft_gen_isodist(input, type=type, isolen=isolen, offset=offset)
+        return fft_gen_isodist(input, type=type, isolen=isolen, offset=offset,
+                              use_modifications=use_modifications)
     elif method == "NN":
         return nn_gen_isodist(
             input,
@@ -651,10 +815,11 @@ def gen_isodist(
             isolen=isolen,
             offset=offset,
             model_path=model_path,
+            use_modifications=use_modifications,
         )
     elif method == "BRAIN":
         return brain_gen_isodist(
-            input, type=type, isolen=isolen, offset=offset
+            input, type=type, isolen=isolen, offset=offset, use_modifications=use_modifications
         )
     else:
         print("Unknown method for generating isotope distribution:", method)

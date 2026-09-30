@@ -509,6 +509,40 @@ float fft_pep_seq_to_dist(const char* sequence, float* isodist, const int isolen
 }
 
 
+int fft_pep_formulas_to_dists(const int* formulas, const int* lengths,
+                              const int count, float* output, const int isolen)
+{
+    if (count < 0 || isolen <= 0 || isolen > 128 ||
+        (count > 0 && (formulas == NULL || lengths == NULL || output == NULL))) {
+        return -1;
+    }
+    for (int i = 0; i < count; i++) {
+        const int* formula = formulas + (size_t)i * 5;
+        int atoms = 0;
+        for (int j = 0; j < 5; j++) {
+            if (formula[j] < 0) {
+                return -1;
+            }
+            atoms += formula[j] > 0;
+        }
+        if (atoms == 0 || lengths[i] < 1 || lengths[i] > 1000) {
+            return -1;
+        }
+        const int fft_length = lengths[i] <= 300 ? 64 : 128;
+        float scratch[128] = {0};
+        const float maximum = fft_list_to_dist(formula, fft_length, scratch);
+        if (maximum <= 0.0f) {
+            return -1;
+        }
+        float* row = output + (size_t)i * (size_t)isolen;
+        for (int j = 0; j < isolen; j++) {
+            row[j] = j < fft_length ? scratch[j] / maximum : 0.0f;
+        }
+    }
+    return 0;
+}
+
+
 //fft
 float fft_pep_mass_to_dist(const float mass, float *isodist, const int isolen, const int offset)
 {

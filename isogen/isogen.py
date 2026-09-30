@@ -34,6 +34,7 @@ def isodist(
         dist_only=False,
         charge=None,
         polarity="positive",
+        use_modifications=True,
         **mass_kwargs,
 ):
     """Generate a mass/intensity isotope distribution.
@@ -51,6 +52,10 @@ def isodist(
             axis; values greater than or equal to one return an m/z axis.
         polarity: ``"positive"`` (default) uses ``(M + zH) / z``;
             ``"negative"`` uses ``(M - zH) / z``.
+        use_modifications: Include resolvable ProForma atomic composition in
+            peptide intensities (default ``True``). Unsupported annotations
+            print a warning and are ignored for intensities. ``False`` uses
+            the legacy unmodified envelope; known mass shifts still apply.
         **mass_kwargs: Options forwarded to :func:`mass.gen_mass_axis`, such
             as ``ion_type``, ``isotope_spacing``, ``threeend``, or ``fiveend``.
 
@@ -60,11 +65,14 @@ def isodist(
     """
     type = type.upper() if isinstance(type, str) else type
     method = method.upper() if isinstance(method, str) else method
-    int_dist = wrapper.gen_isodist(input, type=type, isolen=isolen, method=method)
+    composition = _resolve_distribution_input(input, type, use_modifications, mass_kwargs)
+    int_dist = wrapper.gen_isodist(input, type=type, isolen=isolen, method=method,
+                                  use_modifications=use_modifications, _composition=composition)
     if dist_only:
         return int_dist
 
-    mass_axis = mass.gen_mass_axis(input, type=type, isolen=isolen, **mass_kwargs)
+    axis_input = composition.mass if composition is not None else input
+    mass_axis = mass.gen_mass_axis(axis_input, type=type, isolen=isolen, **mass_kwargs)
     mass_axis = _apply_charge(mass_axis, charge, polarity)
     output = np.transpose(np.vstack((mass_axis, int_dist)))
     return output
@@ -77,6 +85,7 @@ def isodist_custom(
         type="PEPTIDE",
         charge=None,
         polarity="positive",
+        use_modifications=True,
         **mass_kwargs,
 ):
     """Generate a mass/intensity distribution using a custom NN model.
@@ -92,6 +101,9 @@ def isodist_custom(
             axis; values greater than or equal to one return an m/z axis.
         polarity: ``"positive"`` (default) uses ``(M + zH) / z``;
             ``"negative"`` uses ``(M - zH) / z``.
+        use_modifications: Default ``True``. Custom residue-count models print
+            a warning and ignore composition changes in intensities. ``False``
+            suppresses this warning and explicitly selects the legacy envelope.
         **mass_kwargs: Options forwarded to :func:`mass.gen_mass_axis`.
 
     Returns:
@@ -104,6 +116,7 @@ def isodist_custom(
     type = type.upper() if isinstance(type, str) else type
     if type not in ("PEPTIDE", "RNA", "DNA"):
         raise ValueError("Custom models support PEPTIDE, RNA, and DNA inputs")
+    composition = _resolve_distribution_input(input, type, use_modifications, mass_kwargs)
 
     int_dist = wrapper.gen_isodist(
         input,
@@ -111,15 +124,41 @@ def isodist_custom(
         isolen=isolen,
         method="NN",
         model_path=model_file,
+        use_modifications=use_modifications,
+        _composition=composition,
     )
     mass_axis = mass.gen_mass_axis(
-        input,
+        composition.mass if composition is not None else input,
         type=type,
         isolen=isolen,
         **mass_kwargs,
     )
     mass_axis = _apply_charge(mass_axis, charge, polarity)
     return np.transpose(np.vstack((mass_axis, int_dist)))
+
+
+def _resolve_distribution_input(input, type, use_modifications, mass_kwargs):
+    if not isinstance(use_modifications, (bool, np.bool_)):
+        raise TypeError("use_modifications must be a boolean")
+    if type == "PEPTIDE" and isinstance(input, str) and (
+        wrapper.needs_proforma_parser(input) or str(mass_kwargs.get("ion_type", "H2O")).lower() != "h2o"
+    ):
+        if __package__:
+            from .protein_composition import resolve_proforma_composition
+        else:
+            from protein_composition import resolve_proforma_composition
+        resolved = resolve_proforma_composition(
+            input, use_modifications=use_modifications,
+            ion_type=mass_kwargs.get("ion_type", "H2O"))
+        if mass_kwargs.get("all_cyst_ox", False):
+            resolved.mass -= resolved.sequence.count("C") * mass.mass_H_monoisotopic
+        if mass_kwargs.get("pyroglu", False):
+            if resolved.sequence.startswith("E"):
+                resolved.mass -= mass.mass_water_monoisotopic
+            elif resolved.sequence.startswith("Q"):
+                resolved.mass -= mass.mass_OH_monoisotopic
+        return resolved
+    return None
 
 
 if __name__ == "__main__":

@@ -53,6 +53,7 @@ set(ISOGEN_SOURCES
                 isogenpep.c isogenpep.h
                 isogenrna.c isogenrna.h
                 isogenatom.c isogenatom.h
+                isogenisotope.c isogenisotope.h
 )
 
 add_library(isogen SHARED ${ISOGEN_SOURCES})

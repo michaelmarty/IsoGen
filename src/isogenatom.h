@@ -45,6 +45,15 @@ ISOGENATOM_EXPORTS float fft_atom_formula_to_dist(
     int offset
 );
 
+/* Complete nonnegative natural-abundance counts and sparse fixed-isotope
+ * counts. Fixed isotope masses belong in the Python mass-axis origin. */
+ISOGENATOM_EXPORTS float fft_atom_counts_to_dist(
+    const int atom_counts[ISOGENATOM_ELEMENT_COUNT],
+    const int* isotope_elements, const int* isotope_mass_numbers,
+    const int* isotope_counts, int isotope_count,
+    float* isodist, int isolen, int offset
+);
+
 /* Compatibility entry point retained from the original public declaration. */
 ISOGENATOM_EXPORTS void isogen_atom(
     const char* formula,

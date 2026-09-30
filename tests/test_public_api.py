@@ -517,6 +517,7 @@ def test_modified_peptide_nn_uses_full_base_sequence():
         "AC[O1]DE",
         type="PEPTIDE",
         isolen=64,
+        use_modifications=False,
     )
     expected = isogenwrapper.nn_gen_seq_isodist(
         "ACDE",

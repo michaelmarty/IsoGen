@@ -53,14 +53,43 @@ midpoint of their D/N and E/Q possibilities. Because `X` has no unique mass,
 it must carry a complete signed mass gap, for example
 `RTAAX[+367.0537]WT`; bare `X` raises `ValueError`.
 
-XL-MOD, GNO/GNOme, cross-links, branched peptides, isotope replacement, and
-multi-peptidoform expressions are not yet supported.
+XL-MOD, GNO/GNOme, cross-links, branched peptides, and multi-peptidoform
+expressions are not yet supported by the strict mass functions. Global isotope
+replacement, such as `<13C>PEPTIDE`, and explicit isotope formulas are supported
+when their composition and isotope masses can be resolved.
 
-For `isodist`, ProForma annotations affect the mass-axis origin but are
-removed before FFT, NN, or BRAIN calculates intensities. Thus the current
-isotope envelope is the unmodified-sequence approximation. An exact modified
-envelope will require applying every modification formula to an elemental
-composition; a numeric mass shift alone is insufficient to determine one.
+`isodist` includes resolvable modification composition by default:
+
+```python
+modified = isogen.isodist("EM[Oxidation]E")
+legacy = isogen.isodist("EM[Oxidation]E", use_modifications=False)
+labeled = isogen.isodist("K[UNIMOD:259]")
+formula_label = isogen.isodist("A[Formula:H-2[2H2]]")
+```
+
+`use_modifications=False` restores the legacy intensity calculation. Known
+modification mass shifts still affect the axis in both modes. A numeric mass
+shift alone cannot determine composition: prediction prints a warning to
+standard error and ignores it for intensities. Unknown or unsupported descriptors
+are skipped individually, allowing supported modifications on the same peptide
+to remain active. The standalone mass functions retain their strict validation.
+
+Unimod, PSI-MOD, and site-specific RESID formulas are resolved offline. Unimod
+molecular subunits are expanded into atoms; common `Glycan:` compositions are
+also supported by distribution prediction. Fixed isotope atoms contribute their
+exact mass but no natural-abundance envelope width. Their precomputed FFT lives
+in a separate native object, leaving the original natural-abundance tables intact.
+Partial isotope enrichment is not supported.
+
+Composition-aware distributions use light-isotope mass origins for elements such
+as selenium and iron, matching the native general-element FFT. These can differ
+from CV monoisotopic masses defined using the most abundant isotope. The legacy
+residue/CV mass APIs retain their existing conventions.
+
+For composition-changing modifications, bundled NN methods warn and use FFT.
+BRAIN handles CHNOS plus phosphorus, and warns before using FFT for other
+elements or fixed isotope labels. Custom NN models warn and ignore composition
+changes in intensities because their residue-count input cannot represent them.
 
 Use the dedicated helpers when parsing is useful independently:
 

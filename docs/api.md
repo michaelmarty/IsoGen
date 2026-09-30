@@ -7,7 +7,8 @@ All functions below are available directly from `import isogen`.
 ### `isodist`
 
 ```python
-isodist(input, type="PEPTIDE", isolen=128, method="FFT", **mass_kwargs)
+isodist(input, type="PEPTIDE", isolen=128, method="FFT",
+        use_modifications=True, **mass_kwargs)
 ```
 
 Generate a two-column `(mass, relative intensity)` array. `input` may be a
@@ -17,6 +18,32 @@ BRAIN is an absolute polynomial-recurrence calculation. Select `type="ATOM"`
 for a formula; ATOM supports the FFT method only. `mass_kwargs` are forwarded
 to `gen_mass_axis`, including `isotope_spacing`, peptide `ion_type`, and
 nucleic acid `threeend` and `fiveend`.
+
+Peptide ProForma composition is included by default. Set
+`use_modifications=False` to use the legacy unmodified envelope while retaining
+known modification mass shifts. Unsupported or mass-only annotations print a
+warning to standard error and are ignored for intensities; other resolvable
+modifications on the same peptide still apply. Unknown annotations also have no
+mass contribution. Malformed syntax and cross-linked/multiple peptide expressions
+still raise an error.
+
+FFT supports natural-abundance elements and fixed isotope labels. BRAIN accepts
+CHNOS compositions and phosphorus, and prints a warning before using FFT for
+other elements or explicit isotopes. Bundled residue-count NN models likewise
+warn and use FFT for composition-changing modifications. Custom NN models retain
+their requested model and warn that modifications are ignored for intensities.
+`isodist_custom` accepts the same `use_modifications` flag.
+
+```python
+modified = isodist("M[Oxidation]")
+legacy = isodist("M[Oxidation]", use_modifications=False)
+labeled = isodist("K[UNIMOD:259]")  # six 13C and two 15N replacements
+global_label = isodist("<13C>PEPTIDE")
+```
+
+The flag is also available on `gen_isodist`, the FFT/NN/BRAIN sequence and generic
+wrappers, `brain_pep_seq_to_dist`, and `isogen_tools.peptide_to_dist`. For the CLI,
+use `python -m isogen dist "M[Oxidation]" --ignore-modifications`.
 
 ## Elemental formulas
 
@@ -72,8 +99,7 @@ strip_proforma(sequence)
 ```
 
 `calc_proforma_mass` resolves UniMod, PSI-MOD, and RESID annotations and
-returns a neutral mass. `strip_proforma` returns the unannotated sequence used
-by the current isotope-intensity approximation.
+returns a neutral mass. `strip_proforma` returns the unannotated sequence.
 
 ### `calc_pep_fragments`
 

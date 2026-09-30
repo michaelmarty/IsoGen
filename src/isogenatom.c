@@ -2,11 +2,15 @@
 
 #include <ctype.h>
 #include <limits.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "fftw3.h"
 #include "isogendep.h"
+#include "isogenisotope.h"
+
+extern const int dlen;
 
 static int symbol_to_atomic_number(const char* symbol, const size_t symbol_length)
 {
@@ -99,7 +103,9 @@ static int formula_vector_to_probability_dist(
     const int atom_counts[ISOGENATOM_ELEMENT_COUNT],
     const int length,
     float* probability_dist,
-    float* max_probability)
+    float* max_probability,
+    const int* isotope_elements, const int* isotope_mass_numbers,
+    const int* isotope_counts, const int isotope_count)
 {
     const int ftlen = length / 2 + 1;
     fftw_complex* allft =
@@ -166,6 +172,22 @@ static int formula_vector_to_probability_dist(
         }
     }
 
+    for (int j = 0; j < isotope_count; j++) {
+        if (isotope_counts[j] < 0 || setup_fixed_isotope_ft(
+                isotope_elements[j], isotope_mass_numbers[j], elementft, length) != 0) {
+            fftw_free(allft);
+            fftw_free(elementft);
+            fftw_free(buffer);
+            return -1;
+        }
+        /* The fixed-isotope FFT is unity relative to the labeled mass origin.
+         * Explicitly combine it without altering the natural isotope tables. */
+        for (int i = 0; i < ftlen; i++) {
+            allft[i][0] *= elementft[i][0];
+            allft[i][1] *= elementft[i][0];
+        }
+    }
+
     fftw_plan inverse_plan =
         fftw_plan_dft_c2r_1d(length, allft, buffer, FFTW_ESTIMATE);
     if (inverse_plan == NULL)
@@ -224,7 +246,7 @@ float fft_atom_formula_to_dist(
             atom_counts,
             isolen,
             probability_dist,
-            &max_probability) != 0)
+            &max_probability, NULL, NULL, NULL, 0) != 0)
     {
         free(probability_dist);
         return -1.0f;
@@ -246,4 +268,62 @@ float fft_atom_formula_to_dist(
 void isogen_atom(const char* formula, float* isodist, const int isolen)
 {
     (void)fft_atom_formula_to_dist(formula, isodist, isolen, 0);
+}
+
+float fft_atom_counts_to_dist(
+    const int atom_counts[ISOGENATOM_ELEMENT_COUNT],
+    const int* isotope_elements, const int* isotope_mass_numbers,
+    const int* isotope_counts, const int isotope_count,
+    float* isodist, const int isolen, const int offset)
+{
+    if (atom_counts == NULL || isodist == NULL || isolen <= 0 ||
+        offset < 0 || offset >= isolen || isotope_count < 0 ||
+        (isotope_count && (isotope_elements == NULL ||
+                          isotope_mass_numbers == NULL || isotope_counts == NULL))) {
+        return -1.0f;
+    }
+    memset(isodist, 0, (size_t)isolen * sizeof(*isodist));
+    double mean = 0.0;
+    double variance = 0.0;
+    for (int atomic_index = 0; atomic_index < ISOGENATOM_ELEMENT_COUNT; atomic_index++) {
+        const int count = atom_counts[atomic_index];
+        if (count < 0) return -1.0f;
+        if (!count) continue;
+        double reference = -1.0;
+        double sum = 0.0, first = 0.0, second = 0.0;
+        for (int j = 0; j < dlen; j++) {
+            if (isotope_numbers[j] != atomic_index + 1) continue;
+            if (reference < 0) reference = isotope_masses[j];
+            const double shift = round(isotope_masses[j] - reference);
+            const double p = isotope_abundances[j];
+            sum += p;
+            first += p * shift;
+            second += p * shift * shift;
+        }
+        if (sum <= 0) return -1.0f;
+        first /= sum;
+        mean += count * first;
+        variance += count * fmax(0.0, second / sum - first * first);
+    }
+    /* Zero-pad before convolution: short requested outputs must truncate,
+     * rather than fold the envelope tail into the first isotope bins. */
+    const double needed = fmax((double)isolen, mean + 12.0 * sqrt(variance) + 32.0);
+    int length = 64;
+    while (length < needed) {
+        if (length > INT_MAX / 2) return -1.0f;
+        length *= 2;
+    }
+    float* probabilities = (float*)calloc((size_t)length, sizeof(float));
+    if (probabilities == NULL) return -1.0f;
+    float max_probability = 0.0f;
+    const int status = formula_vector_to_probability_dist(
+        atom_counts, length, probabilities, &max_probability,
+        isotope_elements, isotope_mass_numbers, isotope_counts, isotope_count);
+    if (status == 0 && max_probability > 0.0f) {
+        for (int i = 0; i < isolen - offset; i++) {
+            isodist[i + offset] = probabilities[i] / max_probability;
+        }
+    }
+    free(probabilities);
+    return status == 0 ? max_probability : -1.0f;
 }

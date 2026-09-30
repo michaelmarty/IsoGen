@@ -212,7 +212,6 @@ def test_neutral_charge_suffix_does_not_change_mass():
         ("PEP[Not a modification]TIDE", "Unknown"),
         ("PEP[GNO:G62765YT]TIDE", "not yet supported"),
         ("PEPK[XLMOD:02001#XL1]TIDE", "not supported"),
-        ("<13C>PEPTIDE", "not yet supported"),
         ("PEPTIDE+OTHER", "Chimeric"),
         ("PEP[Oxidation", "Unbalanced"),
     ],
@@ -236,7 +235,8 @@ def test_strip_proforma_handles_all_supported_annotation_locations():
 @pytest.mark.parametrize("method", ["FFT", "NN", "BRAIN"])
 def test_isodist_strips_modifications_but_uses_modified_mass_axis(method):
     modified = isogen.isodist(
-        "EM[Oxidation]E", type="PEPTIDE", method=method, isolen=16
+        "EM[Oxidation]E", type="PEPTIDE", method=method, isolen=16,
+        use_modifications=False,
     )
     plain = isogen.isodist("EME", type="PEPTIDE", method=method, isolen=16)
     np.testing.assert_allclose(modified[:, 1], plain[:, 1])
@@ -245,15 +245,14 @@ def test_isodist_strips_modifications_but_uses_modified_mass_axis(method):
     )
 
 
-def test_distribution_only_still_validates_unsupported_modifications():
-    with pytest.raises(ValueError, match="not yet supported"):
-        isogen.isodist(
-            "PEP[GNO:G62765YT]TIDE",
-            type="PEPTIDE",
-            method="FFT",
-            isolen=16,
-            dist_only=True,
-        )
+def test_distribution_only_warns_and_ignores_unsupported_modifications(capsys):
+    observed = isogen.isodist(
+        "PEP[GNO:G62765YT]TIDE", type="PEPTIDE", method="FFT",
+        isolen=16, dist_only=True,
+    )
+    expected = isogen.isodist("PEPTIDE", isolen=16, dist_only=True)
+    np.testing.assert_array_equal(observed, expected)
+    assert "Ignoring modification" in capsys.readouterr().err
 
 
 def test_plain_sequence_regression_and_public_exports():

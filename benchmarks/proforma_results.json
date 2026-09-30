@@ -1,0 +1,88 @@
+{
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.3",
+  "units": "microseconds per call; median of five warmed batches",
+  "proteins": [
+    {
+      "residues": 100,
+      "output_length": 128,
+      "resolve_us": 453.61000011325814,
+      "native_fft_and_marshalling_us": 35.864999881596304,
+      "end_to_end_us": 662.6450001931516
+    },
+    {
+      "residues": 1000,
+      "output_length": 256,
+      "resolve_us": 3902.574999665376,
+      "native_fft_and_marshalling_us": 93.00999990955461,
+      "end_to_end_us": 4399.025000020629
+    },
+    {
+      "residues": 10000,
+      "output_length": 1024,
+      "resolve_us": 35959.27999995183,
+      "native_fft_and_marshalling_us": 164.76999990118202,
+      "end_to_end_us": 36181.520000172895
+    }
+  ],
+  "lookup_cached_us": 0.09799998224480078,
+  "lookup_uncached_us_database_already_loaded": 4.476999965845607,
+  "fragment_batch_100_residues_by_us": 6608.140000025742,
+  "terminal_options": {
+    "ions": 9,
+    "fft_length": 2048,
+    "direct_counts_numpy_us": 3570.4940000141505,
+    "shared_intact_spectrum_numpy_us": 531.5120000159368,
+    "shared_spectrum_max_probability_error": 2.7755575615628914e-17,
+    "minimum_element_spectrum_magnitude": 0.907340330153587
+  },
+  "nn_hydrogen_ablation": [
+    {
+      "residues": 20,
+      "hydrogens": 159,
+      "max_basepeak_normalized_error_omitting_H": 0.010828118559049194
+    },
+    {
+      "residues": 200,
+      "hydrogens": 1572,
+      "max_basepeak_normalized_error_omitting_H": 0.026762296390580365
+    },
+    {
+      "residues": 2000,
+      "hydrogens": 15702,
+      "max_basepeak_normalized_error_omitting_H": 0.08126976588222568
+    }
+  ],
+  "pyteomics_reference": [
+    {
+      "proforma": "[Acetyl]-AC[Carbamidomethyl]DM[Oxidation]ST[Phospho]NK[UNIMOD:259]",
+      "mass_origin_error_Da": 6.521029945361079e-06,
+      "max_basepeak_normalized_intensity_error": 8.063251011325434e-09
+    },
+    {
+      "proforma": "<[Carbamidomethyl]@C><[Oxidation]@M>ACMCMK[UNIMOD:259]",
+      "mass_origin_error_Da": 1.3792169966109213e-05,
+      "max_basepeak_normalized_intensity_error": 1.661560983245991e-08
+    },
+    {
+      "proforma": "<13C><15N>[Acetyl]-AC[Carbamidomethyl]DM[Oxidation]NK",
+      "mass_origin_error_Da": 2.9696599312956096e-06,
+      "max_basepeak_normalized_intensity_error": 2.1310573167232505e-09
+    },
+    {
+      "proforma": "N[Glycan:HexNAc2Hex3NeuAc1]M[Oxidation]C[Carbamidomethyl]K[UNIMOD:259]",
+      "mass_origin_error_Da": 9.844209898801637e-06,
+      "max_basepeak_normalized_intensity_error": 3.744675014516474e-08
+    },
+    {
+      "proforma": "[Acetyl]-M[Oxidation]S[Phospho]N[Deamidated]K[UNIMOD:259]-[Amidated]",
+      "mass_origin_error_Da": 6.582569994861842e-06,
+      "max_basepeak_normalized_intensity_error": 6.437911065360069e-09
+    },
+    {
+      "proforma": "A[Formula:H-4[2H4]]C[Formula:S-1Se]M[Oxidation]K[UNIMOD:259]",
+      "mass_origin_error_Da": 2.849859924936027e-06,
+      "max_basepeak_normalized_intensity_error": 2.1563418273196078e-08
+    }
+  ]
+}

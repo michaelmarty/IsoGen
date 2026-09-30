@@ -187,17 +187,18 @@ def parse_chemical_formula(formula):
 
 
 # Calculate the isotopic distribution of the peptide
-def peptide_to_dist(peptide, isolen=128):
+def peptide_to_dist(peptide, isolen=128, use_modifications=True):
     """Generate an FFT peptide distribution from a sequence.
 
-    ProForma annotations are removed because the native sequence interface
-    accepts residue codes only.
+    Resolvable ProForma composition is included by default. Set
+    ``use_modifications=False`` to use the legacy unmodified envelope.
     """
     try:
         return fft_gen_seq_isodist(
-            strip_proforma(peptide),
+            peptide,
             type="PEPTIDE",
             isolen=isolen,
+            use_modifications=use_modifications,
         )
     except Exception:
         dist = None

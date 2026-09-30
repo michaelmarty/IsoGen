@@ -7,13 +7,8 @@ import numpy as np
 
 if __package__:
     from .isogen import isodist
-    from .plot_tests import plot_isodist_examples
 else:
     from isogen import isodist
-    try:
-        from plot_tests import plot_isodist_examples
-    except ImportError:
-        pass
 
 
 def parse_input(value):
@@ -79,6 +74,10 @@ def build_parser():
         help="write CSV output to this path instead of standard output",
     )
     dist_parser.set_defaults(handler=run_distribution)
+    dist_parser.add_argument(
+        "--ignore-modifications", action="store_true",
+        help="ignore ProForma modifications in isotope intensities (known mass shifts still apply)",
+    )
 
     plot_parser = subparsers.add_parser(
         "plot",
@@ -131,6 +130,7 @@ def run_distribution(args):
         type=args.type,
         isolen=args.isolen,
         method=args.method,
+        use_modifications=not args.ignore_modifications,
     )
     destination = args.output if args.output else sys.stdout
     np.savetxt(
@@ -159,9 +159,9 @@ def run_plots(args):
 
     import matplotlib.pyplot as plt
     if __package__:
-        from .plot_tests import plot_isodist_examples
+        from .scripts.plot_tests import plot_isodist_examples
     else:
-        from plot_tests import plot_isodist_examples
+        from scripts.plot_tests import plot_isodist_examples
 
     fig, _ = plot_isodist_examples(isolen=args.isolen, method=args.method)
     if args.save:
