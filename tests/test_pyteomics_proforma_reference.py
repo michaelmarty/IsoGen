@@ -1,11 +1,23 @@
 """Independent checks for heavily modified, labeled peptides and ion termini."""
 
+import importlib.util
+from pathlib import Path
+
 import numpy as np
 import pytest
 from pyteomics import mass
 
 import isogen
-from benchmarks.proforma_reference import independently_modified, pyteomics_envelope
+
+
+_reference_path = Path(__file__).parents[1] / "benchmarks" / "proforma_reference.py"
+_reference_spec = importlib.util.spec_from_file_location("proforma_reference", _reference_path)
+if _reference_spec is None or _reference_spec.loader is None:
+    raise ImportError(f"Unable to load Pyteomics reference module from {_reference_path}")
+_reference = importlib.util.module_from_spec(_reference_spec)
+_reference_spec.loader.exec_module(_reference)
+independently_modified = _reference.independently_modified
+pyteomics_envelope = _reference.pyteomics_envelope
 
 
 CASES = [
