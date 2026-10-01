@@ -158,6 +158,32 @@ When used through `isodist`, `ion_type` changes the mass-axis origin. The
 sequence intensity calculation retains its standard intact-sequence terminal
 composition.
 
+### Fragment isotope envelopes
+
+`calc_pep_fragment_isodists` generates the selected peptide fragment masses
+and isotope envelopes together:
+
+```python
+batch = isogen.calc_pep_fragment_isodists(
+    "S[Acetylation]HHS", fragmentation_type="ETD", isolen=64
+)
+for label, mass, intensities in zip(batch.labels, batch.masses, batch.intensities):
+    print(label, mass, intensities)
+```
+
+`batch.labels`, `batch.masses`, and rows of `batch.intensities` are aligned.
+Masses are neutral monoisotopic origins and intensities have shape
+`(number_of_fragments, isolen)`, normalized per fragment to its base peak.
+The function supports the same terminal-ion selection as
+`calc_pep_fragments`, but requires `monoisotopic=True` and an `isolen` from 1
+through 128.
+
+Exact fragment envelopes require an unambiguous natural-abundance CHNOS
+composition. A supported ProForma modification is applied only to the
+fragments that retain it. Mass-only, fixed-isotope, unsupported-element,
+unlocalized, and ambiguously localized modifications raise `ValueError`
+rather than returning an incomplete envelope.
+
 ## RNA and DNA termini
 
 Nucleic-acid calculations default to a 3'-OH and a 5'-monophosphate:

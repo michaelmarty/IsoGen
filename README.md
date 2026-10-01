@@ -320,9 +320,11 @@ fixed_cysteine_mass = isogen.calc_pep_monoisotopic_mass(
 
 `J`, `O`, and `U` have defined masses; `B` and `Z` use the midpoint of their
 two possible residues. `X` requires an explicit known mass gap such as
-`X[+367.0537]`. For now, modifications change the mass axis but are stripped
-before isotope intensities are calculated. See the mass-calculation
-documentation for the supported subset and current limitations.
+`X[+367.0537]`. Resolved modification compositions also change the isotope envelope. Mass-only
+or unsupported annotations keep their mass-axis behavior but are ignored for
+intensities with a warning on standard error. Set `use_modifications=False` to
+use the legacy unmodified envelope. See the mass-calculation documentation for
+the supported subset and current limitations.
 
 From the command line:
 
@@ -377,8 +379,8 @@ python -m pip install -e ".[training]"
 
 ## Future Ideas
 
-Add XL-MOD/GNO support and composition-aware isotope distributions for
-modified proteins.
+Add XL-MOD/GNO support for modified-protein composition-aware isotope
+distributions.
 
 Consider a configurable limit for combinatorial ambiguous-fragment variants,
 probability-weighted fragment masses from ProForma localization scores, and

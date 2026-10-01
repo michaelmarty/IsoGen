@@ -45,6 +45,40 @@ The flag is also available on `gen_isodist`, the FFT/NN/BRAIN sequence and gener
 wrappers, `brain_pep_seq_to_dist`, and `isogen_tools.peptide_to_dist`. For the CLI,
 use `python -m isogen dist "M[Oxidation]" --ignore-modifications`.
 
+### `calc_pep_fragment_isodists`
+
+```python
+calc_pep_fragment_isodists(
+    sequence,
+    fragmentation_type=None,
+    ion_types=None,
+    *,
+    isolen=128,
+    monoisotopic=True,
+    **fragment_kwargs,
+)
+```
+
+Calculate isotope envelopes for every selected backbone-cleavage fragment in a
+single FFT call. The returned `FragmentIsotopeBatch` has aligned `labels`,
+neutral monoisotopic `masses`, and an `(number_of_fragments, isolen)`
+`intensities` array. `fragmentation_type`, `ion_types`, and
+`fragment_kwargs` follow `calc_pep_fragments`.
+
+Fragment envelopes require a complete, unambiguous natural-abundance CHNOS
+composition. Supported ProForma modifications are included when they belong to
+the fragment; mass-only, fixed-isotope, unsupported-element, unlocalized, and
+ambiguously localized modifications raise `ValueError`. The calculation also
+requires `monoisotopic=True` and `1 <= isolen <= 128`.
+
+```python
+batch = calc_pep_fragment_isodists(
+    "S[Acetylation]HHS", fragmentation_type="ETD", isolen=64
+)
+for label, mass, intensities in zip(batch.labels, batch.masses, batch.intensities):
+    print(label, mass, intensities)
+```
+
 ## Elemental formulas
 
 ```python
