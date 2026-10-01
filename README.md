@@ -389,6 +389,12 @@ Explore reverse models to infer something about the sequence or input type from 
 
 ## CHANGELOG
 
+### 1.1.3
+
+Added ability to calculate peptide fragment isotope distributions with `calc_pep_fragment_isodists`. This function accepts a peptide sequence and returns the neutral monoisotopic masses and relative intensities for all selected fragment ions in one call. It supports ProForma modifications, known terminal ions, and neutral H2O loss.
+
+Integrated terminal ion support and proforma modifications into the `isodist` function for peptide fragments. The `ion_type` parameter allows selection of intact H2O (default) and peptide a, b, c, x, y, and z ions. ProForma modifications are supported in the fragment sequence.
+
 ### 1.1.2
 
 Added native Windows and Linux ARM64 wheels to the release workflow.
