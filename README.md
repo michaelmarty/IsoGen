@@ -48,7 +48,7 @@ Install a published wheel from PyPI:
 python -m pip install pyisogen
 ```
 
-IsoGen requires Python 3.9 or newer. The native library is loaded through
+IsoGen requires Python 3.10 or newer. The native library is loaded through
 `ctypes` and does not depend on a particular CPython minor-version ABI.
 
 Published platform wheels include a native library built from the bundled C
@@ -463,7 +463,7 @@ macOS wheels compile the bundled C sources automatically with CMake.
 Added native macOS wheels for Intel and Apple Silicon, including bundled FFTW
 runtime dependencies.
 
-Expanded Python compatibility from Python 3.13-only to Python 3.9 and newer.
+Expanded Python compatibility from Python 3.13-only to Python 3.10 and newer.
 
 Added automatic native compilation when pip falls back to the source
 distribution, with clearer errors for missing build prerequisites or runtime

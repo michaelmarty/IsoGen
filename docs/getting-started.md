@@ -8,7 +8,7 @@ Install a published wheel:
 python -m pip install isogen
 ```
 
-IsoGen requires Python 3.9 or newer. Its native library uses `ctypes` and is
+IsoGen requires Python 3.10 or newer. Its native library uses `ctypes` and is
 independent of the CPython minor-version ABI.
 
 IsoGen publishes precompiled native libraries for 64-bit Windows and Linux.

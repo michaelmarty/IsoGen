@@ -151,7 +151,7 @@ jobs:
           python -m venv "${{ runner.temp }}\msvc-test"
           $python = "${{ runner.temp }}\msvc-test\Scripts\python.exe"
           $wheel = (Get-ChildItem '${{ github.workspace }}\wheels\msvc\*.whl').FullName
-          & $python -m pip install $wheel "pytest>=8" "pyteomics>=4.7"
+          & $python -m pip install $wheel "pytest>=8" "pyteomics>=5"
           & $python -m pytest '${{ github.workspace }}\tests' --import-mode=importlib
           & $python '${{ github.workspace }}\benchmarks\wheel_performance.py' --label MSVC --output '${{ github.workspace }}\performance\msvc.json'
 
@@ -162,7 +162,7 @@ jobs:
           python -m venv "${{ runner.temp }}\intel-test"
           $python = "${{ runner.temp }}\intel-test\Scripts\python.exe"
           $wheel = (Get-ChildItem '${{ github.workspace }}\wheels\intel\*.whl').FullName
-          & $python -m pip install $wheel "pytest>=8" "pyteomics>=4.7"
+          & $python -m pip install $wheel "pytest>=8" "pyteomics>=5"
           & $python -m pytest '${{ github.workspace }}\tests' --import-mode=importlib
           & $python '${{ github.workspace }}\benchmarks\wheel_performance.py' --label Intel --output '${{ github.workspace }}\performance\intel.json'
 
@@ -227,7 +227,7 @@ jobs:
           python -m venv wheel-test
           $python = "${{ runner.temp }}\wheel-test\Scripts\python.exe"
           $wheel = (Get-ChildItem '${{ github.workspace }}\dist\*-win_arm64.whl').FullName
-          & $python -m pip install $wheel "pytest>=8" "pyteomics>=4.7"
+          & $python -m pip install $wheel "pytest>=8" "pyteomics>=5"
           & $python -m pytest '${{ github.workspace }}\tests' --import-mode=importlib
 
       - uses: actions/upload-artifact@v7
