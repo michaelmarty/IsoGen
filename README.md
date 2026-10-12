@@ -22,9 +22,9 @@ Additional license information is available in THIRD_PARTY_NOTICES.md for FFTW a
 
 PLEASE CITE THIS SOFTWARE IN ANY PUBLICATIONS THAT USE IT AND RELEVANT BACKGROUND LITERATURE BELOW. Machine-readable citation metadata is available in [CITATION.cff](CITATION.cff).
 
-IsoGen is currently in preprint, please cite:
+Please cite the IsoGen publication:
 
-Pavek, J.G.; Grimes, J.; Frey, B.L.; Welham, N.V.; Smith, L.M.; Marty, M.T. "[Neural Network Prediction of Isotopic Distributions](https://chemrxiv.org/doi/abs/10.26434/chemrxiv.15006709/v1)" ChemRxiv 2026, doi:10.26434/chemrxiv.15006709/v1
+Pavek, J.G.; Grimes, J.; Frey, B.L.; Welham, N.V.; Smith, L.M.; Marty, M.T. "[Evaluating a Lightweight Neural Network for Aggregate Isotope Distribution Prediction](https://doi.org/10.1021/acs.jproteome.6c00685)" Journal of Proteome Research 2026, doi:10.1021/acs.jproteome.6c00685
 
 The FFT method is derived from the following citation:
 

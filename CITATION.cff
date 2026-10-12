@@ -39,14 +39,13 @@ preferred-citation:
       given-names: Lloyd M.
     - family-names: Marty
       given-names: Michael T.
-  title: "Neural Network Prediction of Isotopic Distributions"
-  status: preprint
-  publisher:
-    name: ChemRxiv
+  title: "Evaluating a Lightweight Neural Network for Aggregate Isotope Distribution Prediction"
+  journal: Journal of Proteome Research
   year: 2026
-  month: 7
-  doi: 10.26434/chemrxiv.15006709/v1
-  url: "https://doi.org/10.26434/chemrxiv.15006709/v1"
+  month: 10
+  day: 9
+  doi: 10.1021/acs.jproteome.6c00685
+  url: "https://doi.org/10.1021/acs.jproteome.6c00685"
 
 references:
   - type: article
@@ -64,14 +63,13 @@ references:
         given-names: Lloyd M.
       - family-names: Marty
         given-names: Michael T.
-    title: "Neural Network Prediction of Isotopic Distributions"
-    status: preprint
-    publisher:
-      name: ChemRxiv
+    title: "Evaluating a Lightweight Neural Network for Aggregate Isotope Distribution Prediction"
+    journal: Journal of Proteome Research
     year: 2026
-    month: 7
-    doi: 10.26434/chemrxiv.15006709/v1
-    url: "https://doi.org/10.26434/chemrxiv.15006709/v1"
+    month: 10
+    day: 9
+    doi: 10.1021/acs.jproteome.6c00685
+    url: "https://doi.org/10.1021/acs.jproteome.6c00685"
 
   - type: article
     scope: Background reference for the FFT method.
