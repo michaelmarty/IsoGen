@@ -373,7 +373,7 @@ jobs:
     name: Create GitHub release
     if: github.event_name == 'workflow_dispatch'
     needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-windows-arm64, wheels-linux, wheels-macos, sdist]
-        runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
@@ -421,7 +421,7 @@ jobs:
       needs.wheels-macos.result == 'success' &&
       needs.sdist.result == 'success'
     needs: [release-metadata, wheels-windows, compare-windows-compilers, wheels-windows-arm64, wheels-linux, wheels-macos, sdist, github-release]
-        runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/p/pyisogen
