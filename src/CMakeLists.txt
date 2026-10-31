@@ -153,12 +153,22 @@ if(WIN32 AND CMAKE_C_COMPILER_ID STREQUAL "IntelLLVM")
             DESTINATION .
             COMPONENT Runtime
         )
+        list(APPEND ISOGEN_INTEL_RUNTIME_FILES "${ISOGEN_INTEL_RUNTIME_PATH}")
     endforeach()
 endif()
 
 add_executable(isogen_test isogen_test.cpp)
 target_include_directories(isogen_test PUBLIC ${SRC_DIR})
 target_link_libraries(isogen_test PUBLIC isogen)
+
+# Let isogen_test.exe run from the build tree without oneAPI on PATH.
+if(ISOGEN_INTEL_RUNTIME_FILES)
+    add_custom_command(TARGET isogen_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${ISOGEN_INTEL_RUNTIME_FILES} "$<TARGET_FILE_DIR:isogen_test>"
+        COMMAND_EXPAND_LISTS
+    )
+endif()
 
 # Prebuilt Linux artifacts must not inherit the build host's libstdc++ symbol
 # requirements. Otherwise a build made with a recent GCC cannot be loaded on
