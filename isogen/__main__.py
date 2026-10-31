@@ -26,6 +26,19 @@ def parse_input(value):
         return value
 
 
+def parse_heavy_isotopes(value):
+    """Parse ``2H=0.05,13C=0.02`` into a heavy-isotope dictionary."""
+    if not value:
+        return None
+    result = {}
+    for item in value.split(","):
+        name, separator, fraction = item.partition("=")
+        if not separator:
+            raise ValueError(f"Invalid --heavy-isotopes entry {item!r}; use ISO=FRACTION")
+        result[name.strip()] = float(fraction)
+    return result
+
+
 def build_parser():
     """Construct the top-level IsoGen command-line argument parser."""
     parser = argparse.ArgumentParser(
@@ -74,6 +87,10 @@ def build_parser():
         help="write CSV output to this path instead of standard output",
     )
     dist_parser.set_defaults(handler=run_distribution)
+    dist_parser.add_argument(
+        "--heavy-isotopes", metavar="ISO=FRACTION[,...]",
+        help="ATOM only: heavy-isotope fractions such as 2H=0.05,13C=0.02",
+    )
     dist_parser.add_argument(
         "--ignore-modifications", action="store_true",
         help="ignore ProForma modifications in isotope intensities (known mass shifts still apply)",
@@ -131,6 +148,7 @@ def run_distribution(args):
         isolen=args.isolen,
         method=args.method,
         use_modifications=not args.ignore_modifications,
+        heavy_isotopes=parse_heavy_isotopes(args.heavy_isotopes),
     )
     destination = args.output if args.output else sys.stdout
     np.savetxt(

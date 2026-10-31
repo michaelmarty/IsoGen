@@ -61,6 +61,36 @@ mass, and its intensity vector is base-peak normalized. Formulas use standard
 element symbols followed by optional nonnegative integer counts, such as
 `H2O`, `C6H12O6`, or `NaCl`.
 
+### Partially labeled (enriched) samples
+
+Pass `heavy_isotopes` to describe a sample enriched in a heavy isotope:
+
+```python
+distribution = isogen.isodist(
+    "C6H12O6",
+    type="ATOM",
+    isolen=32,
+    heavy_isotopes={"2H": 0.05},  # 5% of the hydrogens are deuterium
+)
+```
+
+Keys are a mass number and element symbol (`"2H"` or its alias `"D"`,
+`"13C"`, `"15N"`, `"18O"`, or any tabulated isotope). Each value is the
+fraction of that element's atoms that are the heavy isotope. The element's
+single-atom distribution becomes the linear combination
+`(1 - f) * natural + f * heavy`, where the heavy isotope is a delta function;
+that mixed distribution is Fourier transformed and raised to the atom count in
+place of the precomputed natural-abundance transform. Several elements can be
+labeled at once, and several isotopes of one element (such as `17O` and `18O`)
+are allowed when their fractions sum to at most 1.
+
+Fractions must be between 0 and 1, and each labeled element must appear in the
+formula; otherwise `ValueError` is raised. `heavy_isotopes` applies only to
+`ATOM` formula inputs. The mass axis is unchanged and still starts at the
+light-isotope mass. The natural abundance of the heavy isotope is part of the
+`(1 - f)` natural fraction, so `f` is not added on top of it. Enriched elements
+bypass the precomputed transform, so they cost slightly more per call.
+
 ## Axis length and spacing
 
 `isolen` controls both columns, so the mass axis always matches the intensity

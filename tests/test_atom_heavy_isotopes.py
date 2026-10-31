@@ -228,3 +228,25 @@ def test_matches_isospec(formula, enrichment):
                          heavy_isotopes=enrichment)
     np.testing.assert_allclose(got, isospec_reference(formula, enrichment, 64),
                                atol=2e-4, rtol=2e-3)
+
+def test_cli_heavy_isotopes(capsys):
+    from isogen.__main__ import main
+    assert main(["dist", "C6H12O6", "--type", "ATOM", "--isolen", "4",
+                 "--heavy-isotopes", "2H=0.05,13C=0.02"]) == 0
+    rows = [line.split(",") for line in capsys.readouterr().out.strip().splitlines()[1:]]
+    expected = isogen.isodist("C6H12O6", type="ATOM", isolen=4, dist_only=True,
+                              heavy_isotopes={"2H": 0.05, "13C": 0.02})
+    np.testing.assert_allclose([float(r[1]) for r in rows], expected, rtol=1e-6)
+
+
+def test_large_counts_match_reference():
+    enrichment = {"13C": 0.3, "2H": 0.05}
+    got = isogen.isodist("C3000H4500N800O900", type="ATOM", isolen=1500, dist_only=True,
+                         heavy_isotopes=enrichment)
+    assert np.isfinite(got).all() and got.max() == pytest.approx(1.0)
+    mean = (got * np.arange(1500)).sum() / got.sum()
+    nat = {el: natural_vector(el) for el in "CHNO"}
+    shift = {"C": 0.7 * nat["C"][1] + 0.3, "H": 0.95 * nat["H"][1] + 0.05,
+             "N": nat["N"][1], "O": nat["O"][1] + 2 * nat["O"][2]}
+    expected = 3000 * shift["C"] + 4500 * shift["H"] + 800 * shift["N"] + 900 * shift["O"]
+    assert mean == pytest.approx(expected, rel=2e-3)

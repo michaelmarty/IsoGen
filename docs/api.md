@@ -15,7 +15,9 @@ Generate a two-column `(mass, relative intensity)` array. `input` may be a
 numeric neutral mass, biopolymer sequence, or elemental formula. Select
 `method="FFT"`, `method="BRAIN"`, or `method="NN"` for biopolymer inputs.
 BRAIN is an absolute polynomial-recurrence calculation. Select `type="ATOM"`
-for a formula; ATOM supports the FFT method only. `mass_kwargs` are forwarded
+for a formula; ATOM supports the FFT method only. ATOM also accepts
+`heavy_isotopes={"2H": 0.05}` to model fractional heavy-isotope enrichment (see
+[Isotope distributions](isotope-distributions.md)). `mass_kwargs` are forwarded
 to `gen_mass_axis`, including `isotope_spacing`, peptide `ion_type`, and
 nucleic acid `threeend` and `fiveend`.
 

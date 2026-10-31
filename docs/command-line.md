@@ -31,6 +31,12 @@ The output contains a header followed by `mass,intensity` rows. Use
 `--method FFT`, `--method BRAIN`, or `--method NN` to choose the calculation
 engine. `ATOM` inputs support `FFT` only.
 
+Label an `ATOM` formula with heavy isotopes through `--heavy-isotopes`:
+
+```shell
+isogen dist C6H12O6 --type ATOM --isolen 32 --heavy-isotopes 2H=0.05,13C=0.02
+```
+
 ## Example stick plots
 
 Open the example figure:

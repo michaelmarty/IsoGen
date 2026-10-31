@@ -192,3 +192,7 @@ strange_isodist_generator approach): per-element mixed vector -> rfft -> `**coun
   degrade with a clear error if running against an old library.
 - Large counts: bins of the mixed FFT with tiny `|z|` may underflow;
   verify against the reference at count ~10^4.
+
+## Status
+
+Implemented: native ft_atom_counts_to_dist_enriched (built with src\compileintel.bat), Python heavy_isotopes option (isodist, fft_gen_atom_isodist, gen_isodist), CLI --heavy-isotopes, docs, and tests in tests\test_atom_heavy_isotopes.py (NumPy reference, brute force, IsoSpecPy). Pyteomics cross-check was replaced by IsoSpecPy plus brute-force/closed-form checks.
