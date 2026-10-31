@@ -46,11 +46,23 @@ def test_heavily_modified_peptides_match_pyteomics(proforma, plain, deltas, repl
     assert observed[0, 0] == pytest.approx(origin, abs=5e-5)
 
 
+def pyteomics_composition(sequence, ion_type):
+    """Composition for an ion type; '+1' types are the base type plus H.
+
+    Pyteomics versions disagree about whether '+1' ion types exist or what
+    they mean, so build them explicitly."""
+    if not ion_type.endswith("+1"):
+        return dict(mass.Composition(sequence=sequence, ion_type=ion_type))
+    natural = dict(mass.Composition(sequence=sequence, ion_type=ion_type[:-2]))
+    natural["H"] = natural.get("H", 0) + 1
+    return natural
+
+
 @pytest.mark.parametrize("ion_type", ["a", "a+1", "b", "c", "x", "x+1", "y", "y-1", "z", "z'"])
 @pytest.mark.parametrize("sequence", ["ENQS", "ACM", "PEPTIDE"])
 def test_terminal_envelopes_match_pyteomics(sequence, ion_type):
     reference_type = "z+1" if ion_type == "z'" else ion_type
-    natural = dict(mass.Composition(sequence=sequence, ion_type="y" if ion_type == "y-1" else reference_type))
+    natural = pyteomics_composition(sequence, "y" if ion_type == "y-1" else reference_type)
     if ion_type == "y-1":  # Pyteomics has no entry for this radical y ion.
         natural["H"] -= 1
     origin, expected = pyteomics_envelope(natural, isolen=64)
@@ -76,7 +88,7 @@ def test_merged_batch_matches_pyteomics_for_every_fragment():
         ion = "z+1" if label.startswith("z'") else label[0]
         length = int(label[2:] if label.startswith("z'") else label[1:])
         fragment = sequence[:length] if ion[0] in "abc" else sequence[-length:]
-        natural = dict(mass.Composition(sequence=fragment, ion_type=ion))
+        natural = pyteomics_composition(fragment, ion)
         expected_origin, expected = pyteomics_envelope(natural)
         assert origin == pytest.approx(expected_origin, abs=5e-5)
         np.testing.assert_allclose(observed, expected, atol=0.0002, rtol=0.005)
