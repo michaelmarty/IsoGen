@@ -3,6 +3,7 @@
 if __package__:
     from ._version import __version__
     from .isogen import isodist, isodist_custom
+    from .heavyatom import calc_heavy_percent
     from .protein_mods import calc_proforma_mass, strip_proforma
     from .fragment_isodists import calc_pep_fragment_isodists
     from .mass import (
@@ -24,6 +25,7 @@ if __package__:
 else:
     from _version import __version__
     from isogen import isodist, isodist_custom
+    from heavyatom import calc_heavy_percent
     from protein_mods import calc_proforma_mass, strip_proforma
     from fragment_isodists import calc_pep_fragment_isodists
     from mass import (
@@ -47,6 +49,7 @@ __all__ = [
     "__version__",
     "isodist",
     "isodist_custom",
+    "calc_heavy_percent",
     "calc_proforma_mass",
     "strip_proforma",
     "calc_pep_fragment_isodists",

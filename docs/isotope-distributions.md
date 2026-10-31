@@ -91,6 +91,41 @@ light-isotope mass. The natural abundance of the heavy isotope is part of the
 `(1 - f)` natural fraction, so `f` is not added on top of it. Enriched elements
 bypass the precomputed transform, so they cost slightly more per call.
 
+### Measuring enrichment
+
+`calc_heavy_percent` does the reverse: given a measured distribution, an
+elemental formula, and the heavy isotope to test, it returns the percent
+enrichment and the fitted distribution.
+
+```python
+measured = isogen.isodist("C6H12O6", type="ATOM", isolen=24, dist_only=True,
+                          heavy_isotopes={"2H": 0.05})
+percent, fit = isogen.calc_heavy_percent(measured, "C6H12O6", "2H")  # ~5.0
+```
+
+`dist` is a 1-D intensity vector (or an `(m, 2)` array whose second column is
+used) that starts at the light-isotope peak and has one value per nominal mass
+unit; its length is the fitted window. The overall intensity scale is
+arbitrary. Each peak is a degree-n polynomial in the enrichment `f` (n is the
+atom count of the element), because the element contributes the n-fold
+convolution of `(1 - f) * natural + f * heavy` with the fixed distribution of
+all other elements. The scale and `f` are fitted by bounded least squares
+(`scipy.optimize.least_squares` with an analytic Jacobian), started from the
+best point of a coarse scan that includes the closed-form mean-shift estimate.
+The standard error comes from the Gauss-Newton covariance. `fit_dist` is
+`isodist(formula, heavy_isotopes={heavy_atom: f})` at the fitted `f`. Use
+`weights="poisson"` to weight peaks by inverse intensity for counting noise.
+
+Only the named element is fitted; all others are assumed natural. Isotopes that
+share a nominal mass shift (for example 13C and 2H in one window) cannot be told
+apart from a single distribution, and the window must reach the heavy isotope's
+mass shift. `ValueError` is raised for an element not in the formula, an
+invalid distribution, or a shift beyond the window.
+
+**References:** Kelleher and Masterson, *Am. J. Physiol.* 262, E118 (1992);
+Hellerstein and Neese, *Am. J. Physiol.* 263, E988 (1992) (mass isotopomer
+distribution analysis).
+
 ## Axis length and spacing
 
 `isolen` controls both columns, so the mass axis always matches the intensity

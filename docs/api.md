@@ -47,6 +47,19 @@ The flag is also available on `gen_isodist`, the FFT/NN/BRAIN sequence and gener
 wrappers, `brain_pep_seq_to_dist`, and `isogen_tools.peptide_to_dist`. For the CLI,
 use `python -m isogen dist "M[Oxidation]" --ignore-modifications`.
 
+### `calc_heavy_percent`
+
+```python
+calc_heavy_percent(dist, formula, heavy_atom, weights="none")
+```
+
+Inverse of `isodist(..., heavy_isotopes=...)`: estimate the percentage of one
+element's atoms that are the heavy isotope `heavy_atom` (`"2H"`, `"D"`,
+`"13C"`, `"15N"`, `"18O"`, or a bare `"H"`, `"C"`, `"N"`, `"O"`, `"S"`) from a
+measured distribution. Returns a result that unpacks as `(percent, fit_dist)`
+and also has `stderr`, `scale`, `rmse`, `heavy_atom`, and `n_atoms`. See
+[Isotope distributions](isotope-distributions.md#measuring-enrichment).
+
 ### `calc_pep_fragment_isodists`
 
 ```python

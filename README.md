@@ -395,6 +395,8 @@ Explore reverse models to infer something about the sequence or input type from 
 
 Added heavy isotope mode using `heavy_isotopes={"2H": 0.05}` construction. 
 
+Added `calc_heavy_percent(dist, formula, heavy_atom)` in `isogen/heavyatom.py`, the inverse of heavy isotope mode: it fits the percent enrichment of a heavy atom from a measured distribution and returns the fitted distribution.
+
 ### 1.1.3
 
 Added ability to calculate peptide fragment isotope distributions with `calc_pep_fragment_isodists`. This function accepts a peptide sequence and returns the neutral monoisotopic masses and relative intensities for all selected fragment ions in one call. It supports ProForma modifications, known terminal ions, and neutral H2O loss.
