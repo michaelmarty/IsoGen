@@ -391,6 +391,10 @@ Explore reverse models to infer something about the sequence or input type from 
 
 ## CHANGELOG
 
+### 1.1.4
+
+Added heavy isotope mode using `heavy_isotopes={"2H": 0.05}` construction. 
+
 ### 1.1.3
 
 Added ability to calculate peptide fragment isotope distributions with `calc_pep_fragment_isodists`. This function accepts a peptide sequence and returns the neutral monoisotopic masses and relative intensities for all selected fragment ions in one call. It supports ProForma modifications, known terminal ions, and neutral H2O loss.
