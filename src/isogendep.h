@@ -45,6 +45,7 @@ struct IsoGenWeights {
 };
 
 // Function Declarations
+ISOGENDEP_EXPORTS void construct_isotope_array(int number, double* isotope_array, int length);
 ISOGENDEP_EXPORTS int setup_ft(const int number, fftw_complex* outft, const int length, const int ftlen);
 ISOGENDEP_EXPORTS void convolve_all(const int isolist[5], fftw_complex* allft, const fftw_complex* cft, const fftw_complex* hft,
                   const fftw_complex* nft, const fftw_complex* oft, const fftw_complex* sft, const int length);

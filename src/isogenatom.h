@@ -54,6 +54,20 @@ ISOGENATOM_EXPORTS float fft_atom_counts_to_dist(
     float* isodist, int isolen, int offset
 );
 
+/* Same as fft_atom_counts_to_dist, plus fractional enrichment: for each
+ * (element, mass number, fraction) the element's distribution becomes
+ * (1 - sum f) * natural + sum f_i * delta(heavy_i). Returns -1 for invalid
+ * input (unknown isotope, fraction outside [0,1], summed fraction > 1, or an
+ * enriched element absent from atom_counts). */
+ISOGENATOM_EXPORTS float fft_atom_counts_to_dist_enriched(
+    const int atom_counts[ISOGENATOM_ELEMENT_COUNT],
+    const int* isotope_elements, const int* isotope_mass_numbers,
+    const int* isotope_counts, int isotope_count,
+    const int* enrich_elements, const int* enrich_mass_numbers,
+    const double* enrich_fractions, int enrich_count,
+    float* isodist, int isolen, int offset
+);
+
 /* Compatibility entry point retained from the original public declaration. */
 ISOGENATOM_EXPORTS void isogen_atom(
     const char* formula,
