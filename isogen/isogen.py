@@ -35,6 +35,7 @@ def isodist(
         charge=None,
         polarity="positive",
         use_modifications=True,
+        heavy_isotopes=None,
         **mass_kwargs,
 ):
     """Generate a mass/intensity isotope distribution.
@@ -58,6 +59,11 @@ def isodist(
             the legacy unmodified envelope; known mass shifts still apply.
         **mass_kwargs: Options forwarded to :func:`mass.gen_mass_axis`, such
             as ``ion_type``, ``isotope_spacing``, ``threeend``, or ``fiveend``.
+        heavy_isotopes: ATOM only. Dict of heavy-isotope fractions such as
+            ``{"2H": 0.05}`` (5% of hydrogens are deuterium). Natural
+            abundances are replaced by a linear mixture with the heavy isotope;
+            supports ``2H``/``D``, ``13C``, ``15N``, ``18O`` and any tabulated
+            isotope. The mass axis keeps the light-isotope origin.
 
     Returns:
         A ``(isolen, 2)`` NumPy array containing neutral masses or m/z values
@@ -67,7 +73,8 @@ def isodist(
     method = method.upper() if isinstance(method, str) else method
     composition = _resolve_distribution_input(input, type, use_modifications, mass_kwargs)
     int_dist = wrapper.gen_isodist(input, type=type, isolen=isolen, method=method,
-                                  use_modifications=use_modifications, _composition=composition)
+                                  use_modifications=use_modifications, _composition=composition,
+                                  heavy_isotopes=heavy_isotopes)
     if dist_only:
         return int_dist
 

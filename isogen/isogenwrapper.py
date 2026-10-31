@@ -390,20 +390,93 @@ def atom_formula_to_vector(formula):
     return atom_counts
 
 
-def fft_gen_atom_isodist(formula, isolen=128, offset=0):
+_fft_atom_counts_to_dist_enriched_c = getattr(
+    isogen_c_lib, "fft_atom_counts_to_dist_enriched", None
+)
+if _fft_atom_counts_to_dist_enriched_c is not None:
+    _fft_atom_counts_to_dist_enriched_c.argtypes = [
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_int), ctypes.c_int,
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+        ctypes.POINTER(ctypes.c_double), ctypes.c_int,
+        ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int,
+    ]
+    _fft_atom_counts_to_dist_enriched_c.restype = ctypes.c_float
+
+
+def _parse_heavy_isotopes(heavy_isotopes, atom_counts):
+    """Validate a ``{"2H": 0.05}`` mapping.
+
+    Returns parallel (atomic numbers, mass numbers, fractions) lists with
+    zero-fraction entries removed.
+    """
+    import math
+    import re
+    if __package__:
+        from .protein_mods import _ELEMENTS
+    else:
+        from protein_mods import _ELEMENTS
+    if not isinstance(heavy_isotopes, dict):
+        raise TypeError("heavy_isotopes must be a dict such as {'2H': 0.05}")
+    entries = {}
+    totals = {}
+    for key, fraction in heavy_isotopes.items():
+        if not isinstance(key, str):
+            raise TypeError("heavy_isotopes keys must be strings such as '13C'")
+        text = key.strip()
+        if text == "D":
+            text = "2H"
+        match = re.fullmatch(r"(\d+)([A-Z][a-z]?)", text)
+        if match is None:
+            raise ValueError(
+                f"Invalid heavy isotope {key!r}; use a mass number and element symbol such as '13C'")
+        mass_number, element = int(match.group(1)), match.group(2)
+        if element not in _ELEMENTS:
+            raise ValueError(f"Unknown element in heavy isotope {key!r}")
+        if isinstance(fraction, (bool, np.bool_)) or not isinstance(fraction, (int, float, np.integer, np.floating)):
+            raise TypeError(f"Fraction for {key!r} must be a real number")
+        fraction = float(fraction)
+        if not math.isfinite(fraction) or not 0.0 <= fraction <= 1.0:
+            raise ValueError(f"Fraction for {key!r} must be between 0 and 1")
+        atomic_number = _ELEMENTS.index(element) + 1
+        if atom_counts[atomic_number - 1] <= 0:
+            raise ValueError(f"Heavy isotope {key!r} refers to an element not in the formula")
+        isotope_mass(element, mass_number)
+        if (atomic_number, mass_number) in entries:
+            raise ValueError(f"Heavy isotope {key!r} is specified more than once")
+        entries[(atomic_number, mass_number)] = fraction
+        totals[atomic_number] = totals.get(atomic_number, 0.0) + fraction
+    for atomic_number, total in totals.items():
+        if total > 1.0 + 1e-12:
+            raise ValueError(
+                f"Heavy isotope fractions for {_ELEMENTS[atomic_number - 1]} sum to more than 1")
+    kept = [(z, a, f) for (z, a), f in entries.items() if f > 0.0]
+    return [k[0] for k in kept], [k[1] for k in kept], [k[2] for k in kept]
+
+
+def fft_gen_atom_isodist(formula, isolen=128, offset=0, heavy_isotopes=None):
     """Generate FFT isotope intensities from an elemental formula.
 
     Args:
         formula: Elemental formula such as ``"C6H12O6"``.
         isolen: Output vector length.
         offset: Number of leading zero-intensity isotope positions.
+        heavy_isotopes: Optional dict of heavy-isotope fractions, such as
+            ``{"2H": 0.05, "13C": 0.02}``. Each value is the fraction of that
+            element's atoms that are the named isotope; the element's natural
+            distribution is scaled by one minus the summed fractions and the
+            heavy isotope is added as a delta. ``"D"`` is an alias of ``"2H"``.
+            Fractions must lie in [0, 1] and sum to at most 1 per element, and
+            each element must appear in the formula.
 
     Returns:
         A base-peak-normalized float32 NumPy intensity vector.
 
     Raises:
         TypeError: If an argument has the wrong type.
-        ValueError: If the formula or output geometry is invalid.
+        ValueError: If the formula, output geometry, or heavy isotopes are
+            invalid.
         RuntimeError: If the loaded native library lacks atom support.
     """
     _require_atom_formula_function(
@@ -423,6 +496,25 @@ def fft_gen_atom_isodist(formula, isolen=128, offset=0):
 
     isodist = np.zeros(isolen, dtype=np.float32)
     ptr = isodist.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    if heavy_isotopes is not None:
+        counts = atom_formula_to_vector(formula)
+        elements, mass_numbers, fractions = _parse_heavy_isotopes(heavy_isotopes, counts)
+        if elements:
+            _require_atom_formula_function(
+                _fft_atom_counts_to_dist_enriched_c, "fft_atom_counts_to_dist_enriched")
+            element_array = np.array(elements, dtype=np.int32)
+            mass_array = np.array(mass_numbers, dtype=np.int32)
+            fraction_array = np.array(fractions, dtype=np.float64)
+            result = _fft_atom_counts_to_dist_enriched_c(
+                counts.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+                None, None, None, 0,
+                element_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+                mass_array.ctypes.data_as(ctypes.POINTER(ctypes.c_int)),
+                fraction_array.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+                len(elements), ptr, isolen, offset)
+            if result < 0:
+                raise ValueError("Invalid heavy isotope composition or native FFT allocation failure")
+            return isodist
     result = _fft_atom_formula_to_dist_c(
         formula_bytes,
         ptr,
@@ -434,14 +526,16 @@ def fft_gen_atom_isodist(formula, isolen=128, offset=0):
     return isodist
 
 
-def fft_atom_formula_to_dist(formula, isolen=128, offset=0):
+def fft_atom_formula_to_dist(formula, isolen=128, offset=0, heavy_isotopes=None):
     """Alias for :func:`fft_gen_atom_isodist` using the native API name."""
-    return fft_gen_atom_isodist(formula, isolen=isolen, offset=offset)
+    return fft_gen_atom_isodist(formula, isolen=isolen, offset=offset,
+                                heavy_isotopes=heavy_isotopes)
 
 
-def isogen_atom(formula, isolen=128):
+def isogen_atom(formula, isolen=128, heavy_isotopes=None):
     """Generate formula intensities through the compatibility API name."""
-    return fft_gen_atom_isodist(formula, isolen=isolen, offset=0)
+    return fft_gen_atom_isodist(formula, isolen=isolen, offset=0,
+                                heavy_isotopes=heavy_isotopes)
 
 
 def nn_gen_seq_isodist(
@@ -771,6 +865,7 @@ def gen_isodist(
     model_path=None,
     use_modifications=True,
     _composition=None,
+    heavy_isotopes=None,
 ):
     """Dispatch a mass or sequence to an isotope-distribution method.
 
@@ -794,6 +889,11 @@ def gen_isodist(
     method = method.upper() if isinstance(method, str) else method
     if type in ("ATOM", "FORMULA") and method != "FFT":
         raise ValueError("ATOM inputs support only the FFT method")
+    if heavy_isotopes is not None:
+        if type not in ("ATOM", "FORMULA") or not isinstance(input, str):
+            raise ValueError("heavy_isotopes is supported only for ATOM formula inputs")
+        return fft_gen_atom_isodist(input, isolen=isolen, offset=offset,
+                                    heavy_isotopes=heavy_isotopes)
     if model_path is not None and method != "NN":
         raise ValueError("model_path is supported only by the NN method")
     if not isinstance(use_modifications, (bool, np.bool_)):
